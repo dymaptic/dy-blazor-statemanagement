@@ -11,5 +11,10 @@ public interface IStateManager<T>: IStateManager where T : StateRecord
     Task<T> Save(T model, CancellationToken cancellationToken = default);
     Task<T> Update(T model, CancellationToken cancellationToken = default);
     Task Delete(Guid id, CancellationToken cancellationToken = default);
-    Task<IEnumerable<T>> LoadAll(CancellationToken cancellationToken = default);
+    Task<List<T>> LoadAll(Dictionary<string, string>? queryParams,
+        CancellationToken cancellationToken = default);
+    Task<T> Search(Dictionary<string, string> queryParams, 
+        CancellationToken cancellationToken = default);
+
+    Task<List<T>> SaveAll(List<T> models, CancellationToken cancellationToken = default);
 }
