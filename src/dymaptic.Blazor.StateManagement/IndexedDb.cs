@@ -118,11 +118,11 @@ public class IndexedDb(IJSRuntime jsRuntime, string databaseName, int version, I
         ThrowIfNotInitialized();
         await operation();
     }
-    
-    private bool IsInitialized => _module is not null && _database is not null;
+
+    public bool IsInitialized => _module is not null && _database is not null;
     
     private readonly Lazy<Task<IJSObjectReference>> _moduleTask = new (() => jsRuntime.InvokeAsync<IJSObjectReference>(
-        "import", "./indexedDb.js").AsTask());
+        "import", "./_content/dymaptic.Blazor.StateManagement/indexedDb.js").AsTask());
     private IJSObjectReference? _database;
     private IJSObjectReference? _module;
 }

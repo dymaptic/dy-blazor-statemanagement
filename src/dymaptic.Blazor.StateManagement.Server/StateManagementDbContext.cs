@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace dymaptic.Blazor.StateManagement.Server;
 
-public class StateManagementDbContext(DbContextOptions<StateManagementDbContext> options,
+public class StateManagementDbContext(DbContextOptions options,
     IServiceProvider serviceProvider): IdentityDbContext<ApplicationUser, ApplicationRole, Guid>(options)
 {
     protected override void OnModelCreating(ModelBuilder modelBuilder)

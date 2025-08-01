@@ -17,7 +17,7 @@ public class ServerStateManager<T>(StateManagementDbContext dbContext): IStateMa
 
         foreach (var param in queryParams)
         {
-            query = query.Where(e => EF.Property<string>(e, param.Key) == param.Value);
+            query = query.Where(e => EF.Property<string>(e, param.Key).ToString() == param.Value);
         }
 
         return query.FirstOrDefaultAsync(cancellationToken)
@@ -58,7 +58,7 @@ public class ServerStateManager<T>(StateManagementDbContext dbContext): IStateMa
         {
             foreach (var param in queryParams)
             {
-                query = query.Where(e => EF.Property<string>(e, param.Key) == param.Value);
+                query = query.Where(e => EF.Property<string>(e, param.Key).ToString() == param.Value);
             }
         }
 

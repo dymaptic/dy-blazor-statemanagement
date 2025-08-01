@@ -290,14 +290,8 @@ public abstract class CollectionStateComponentBase<T> : ComponentBase where T : 
             return;
         }
         
-        await IndexedDb.Initialize();
         Uri uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
         QueryString = uri.Query;
-
-        if (Model is null && LoadOnInitialize)
-        {
-            await Load();
-        }
     }
 
     protected override async Task OnParametersSetAsync()
@@ -306,9 +300,25 @@ public abstract class CollectionStateComponentBase<T> : ComponentBase where T : 
         string? previousQueryString = QueryString;
         Uri uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
         QueryString = uri.Query;
-        if (previousQueryString is not null && QueryString != previousQueryString && LoadOnInitialize)
+        if (previousQueryString is not null 
+            && QueryString != previousQueryString 
+            && LoadOnInitialize
+            && IndexedDb.IsInitialized)
         {
             await Load();
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+        if (firstRender)
+        {
+            await IndexedDb.Initialize();
+            if (Model is null && LoadOnInitialize)
+            {
+                await Load();
+            }
         }
     }
 
@@ -376,13 +386,20 @@ public abstract class CollectionStateComponentBase<T> : ComponentBase where T : 
     
     private async Task<List<T>?> LoadFromIndexedDb(string? queryString, CancellationToken cancellationToken)
     {
-        CacheStorageCollectionRecord<T>? cachedRecord = 
-            await IndexedDb.Get<CacheStorageCollectionRecord<T>>($"{UserId}-{queryString}", cancellationToken);
-
-        if (cachedRecord is not null && cachedRecord.UserId == UserId
-            && cachedRecord.TimeStamp + CacheDuration < TimeProvider.GetUtcNow().DateTime)
+        try
         {
-            return cachedRecord.Items;
+            CacheStorageCollectionRecord<T>? cachedRecord = 
+                await IndexedDb.Get<CacheStorageCollectionRecord<T>>($"{UserId}-{queryString}", cancellationToken);
+
+            if (cachedRecord is not null && cachedRecord.UserId == UserId
+                                         && cachedRecord.TimeStamp + CacheDuration < TimeProvider.GetUtcNow().DateTime)
+            {
+                return cachedRecord.Items;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load from IndexedDb");
         }
 
         return null;

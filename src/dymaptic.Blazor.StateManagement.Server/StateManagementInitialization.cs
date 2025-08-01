@@ -6,12 +6,13 @@ namespace dymaptic.Blazor.StateManagement.Server;
 
 public static class StateManagementInitialization
 {
-    public static IServiceCollection AddServerStateManagement(this IServiceCollection services,
+    public static IServiceCollection AddServerStateManagement<TDbContext>(this IServiceCollection services,
         IList<Type> stateRecordTypes, int indexedDbVersion = 1, 
-        Action<DbContextOptionsBuilder>? dbContextOptionsAction = null)
+        Action<DbContextOptionsBuilder>? dbContextOptionsAction = null) where TDbContext : StateManagementDbContext
     {
         services.AddIndexedDb(stateRecordTypes, indexedDbVersion);
-        services.AddDbContext<StateManagementDbContext>(dbContextOptionsAction);
+        services.AddSingleton(TimeProvider.System);
+        services.AddDbContext<StateManagementDbContext, TDbContext>(dbContextOptionsAction);
         Type initializerType = typeof(StateManagementInitialization);
         MethodInfo addServerStateManagerMethod = initializerType
             .GetMethod(nameof(AddServerStateManager), BindingFlags.NonPublic | BindingFlags.Static)!;

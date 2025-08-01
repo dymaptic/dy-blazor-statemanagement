@@ -11,6 +11,7 @@ public static class StateManagementInitialization
         IList<Type> stateRecordTypes, int indexedDbVersion = 1)
     {
         services.AddIndexedDb(stateRecordTypes, indexedDbVersion);
+        services.AddSingleton(TimeProvider.System);
         Type initializerType = typeof(StateManagementInitialization);
         MethodInfo addStateManagerMethod = initializerType
             .GetMethod(nameof(AddClientStateManager), BindingFlags.NonPublic | BindingFlags.Static)!;
@@ -48,7 +49,7 @@ public static class StateManagementInitialization
         where T : StateRecord
     {
         services.AddHttpClient<IStateManager<T>, ClientStateManager<T>>();
-        services.AddScoped<IStateManager<T>>(sp => sp.GetRequiredService<IStateManager<T>>());
+        services.AddScoped<IStateManager>(sp => sp.GetRequiredService<IStateManager<T>>());
         return services;
     }
 }
