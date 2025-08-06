@@ -12,10 +12,6 @@ namespace dymaptic.Blazor.StateManagement;
 public abstract class StateComponentBase<T> : ComponentBase where T : StateRecord, new()
 {
     [Inject]
-    public required IndexedDb IndexedDb { get; set; }
-    [Inject]
-    public required TimeProvider TimeProvider { get; set; }
-    [Inject]
     public required AuthenticationStateProvider AuthenticationStateProvider { get; set; }
     [Inject]
     public required ILogger<StateComponentBase<T>> Logger { get; set; }
@@ -29,7 +25,6 @@ public abstract class StateComponentBase<T> : ComponentBase where T : StateRecor
     public T? Model { get; protected set; }
     
     protected virtual bool LoadOnInitialize { get; set; }
-    protected virtual TimeSpan CacheDuration { get; set; } = TimeSpan.FromMinutes(5);
 
     public virtual async ValueTask<StateResult> Update(CancellationToken cancellationToken = default)
     {
@@ -109,11 +104,16 @@ public abstract class StateComponentBase<T> : ComponentBase where T : StateRecor
         }
     }
 
-    public virtual async ValueTask<StateResult> Load(Guid? id = null, CancellationToken cancellationToken = default)
+    public virtual async ValueTask Load(Guid? id = null, CancellationToken cancellationToken = default)
     {
         if (!Authenticated)
         {
             return new StateResult(false, "User not authenticated");
+        }
+        
+        if (!StateManager.IsInitialized)
+        {
+            StateManager.Initialize(UserId!);
         }
         
         // get ID from the URL if it exists
@@ -380,7 +380,7 @@ public abstract class StateComponentBase<T> : ComponentBase where T : StateRecor
         if (previousQueryString is not null 
             && QueryString != previousQueryString 
             && LoadOnInitialize
-            && IndexedDb.IsInitialized)
+            && !StateManager.IsInitialized)
         {
             await Load();
         }
