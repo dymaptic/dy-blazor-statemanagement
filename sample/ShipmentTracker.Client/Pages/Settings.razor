@@ -1,0 +1,68 @@
+@inherits StateComponentBase<CompanySettings>
+@page "/settings"
+@rendermode InteractiveServer
+
+<PageTitle>Settings</PageTitle>
+<h1>Settings</h1>
+
+<div class="content">
+    <RadzenTabs>
+        <Tabs>
+            <RadzenTabsItem Text="General">
+                <h3>General Settings</h3>
+                <div class="mb-3">
+                    <RadzenLabel Text="Company Name" />
+                    <RadzenTextBox @bind-Value="@Model!.CompanyName" Class="w-100" />
+                </div>
+                <div class="mb-3">
+                    <RadzenLabel Text="Default Warehouse Location" />
+                    <RadzenTextBox @bind-Value="@Model!.WarehouseLocation" Class="w-100" />
+                </div>
+                <div class="mb-3">
+                    <RadzenCheckBox @bind-Value="@Model!.EnableNotifications" />
+                    <RadzenLabel Text="Enable Email Notifications" Class="ms-2" />
+                </div>
+            </RadzenTabsItem>
+            
+            <RadzenTabsItem Text="Map Settings">
+                <h3>Map Configuration</h3>
+                <div class="mb-3">
+                    <RadzenCheckBox @bind-Value="@Model!.ShowTrafficByDefault" />
+                    <RadzenLabel Text="Show Traffic Layer by Default" Class="ms-2" />
+                </div>
+                <div class="mb-3">
+                    <RadzenCheckBox @bind-Value="@Model!.ShowWeatherByDefault" />
+                    <RadzenLabel Text="Show Weather Layer by Default" Class="ms-2" />
+                </div>
+                <div class="mb-3">
+                    <RadzenLabel Text="Default Map Zoom Level" />
+                    <RadzenNumeric @bind-Value="@Model!.DefaultZoom" Min="1" Max="20" />
+                </div>
+            </RadzenTabsItem>
+            
+            <RadzenTabsItem Text="API Keys">
+                <h3>API Configuration</h3>
+                <div class="mb-3">
+                    <RadzenLabel Text="ArcGIS API Key" />
+                    <RadzenTextBox @bind-Value="@Model!.ArcgisApiKey" Class="w-100" Type="password" />
+                </div>
+                <div class="mb-3">
+                    <RadzenLabel Text="Email Service API Key" />
+                    <RadzenTextBox @bind-Value="@Model!.EmailApiKey" Class="w-100" Type="password" />
+                </div>
+            </RadzenTabsItem>
+        </Tabs>
+    </RadzenTabs>
+    
+    <div class="mt-4">
+        <RadzenButton Text="Save Settings" Icon="save" ButtonStyle="ButtonStyle.Primary" Click="SaveSettings" />
+        <RadzenButton Text="Cancel" Icon="cancel" ButtonStyle="ButtonStyle.Light" Class="ms-2" />
+    </div>
+</div>
+
+@code {
+    private async Task SaveSettings()
+    {
+        await Save();
+    }
+}

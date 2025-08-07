@@ -1,0 +1,81 @@
+@inherits CollectionStateComponentBase<Shipment>
+@page "/inventory"
+@rendermode InteractiveWebAssembly
+
+<PageTitle>Inventory Management</PageTitle>
+<h1>Inventory Management</h1>
+
+<div class="content">
+    <div class="shipment-stats">
+        <div class="stat-card">
+            <div class="stat-value">@_totalPackages</div>
+            <div class="stat-label">Total Packages</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">@_inTransit</div>
+            <div class="stat-label">In Transit</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">@_delivered</div>
+            <div class="stat-label">Delivered Today</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">@_pending</div>
+            <div class="stat-label">Pending Pickup</div>
+        </div>
+    </div>
+
+    <h2>Inventory by Category</h2>
+    <RadzenDataGrid Data="@_categoryStats" TItem="CategoryStat" AllowSorting="true">
+        <Columns>
+            <RadzenDataGridColumn TItem="CategoryStat" Property="Category" Title="Category" />
+            <RadzenDataGridColumn TItem="CategoryStat" Property="Count" Title="Package Count" />
+            <RadzenDataGridColumn TItem="CategoryStat" Property="TotalWeight" Title="Total Weight (lbs)" FormatString="{0:N2}" />
+            <RadzenDataGridColumn TItem="CategoryStat" Property="AverageWeight" Title="Avg Weight (lbs)" FormatString="{0:N2}" />
+        </Columns>
+    </RadzenDataGrid>
+</div>
+
+@code {
+
+    private int _totalPackages;
+    private int _inTransit;
+    private int _delivered;
+    private int _pending;
+    private List<CategoryStat> _categoryStats = [];
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+
+        if (firstRender)
+        {
+            _totalPackages = Model!.Count;
+            _inTransit = Random.Shared.Next(50, 80);
+            _delivered = Random.Shared.Next(10, 30);
+            _pending = Random.Shared.Next(5, 15);
+
+            _categoryStats = Model
+                .GroupBy(s => s.Category)
+                .Select(g => new CategoryStat
+                {
+                    Category = g.Key!,
+                    Count = g.Count(),
+                    TotalWeight = g.Sum(s => s.Weight),
+                    AverageWeight = g.Average(s => s.Weight)
+                })
+                .OrderByDescending(c => c.Count)
+                .ToList();
+            
+            StateHasChanged();
+        }
+    }
+
+    private record CategoryStat
+    {
+        public string Category { get; init; } = string.Empty;
+        public int Count { get; init; }
+        public double TotalWeight { get; init; }
+        public double AverageWeight { get; init; }
+    }
+}

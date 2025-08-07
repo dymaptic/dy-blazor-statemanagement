@@ -1,0 +1,139 @@
+@inherits CollectionStateComponentBase<Shipment>
+@page "/map"
+@rendermode InteractiveAuto
+
+<h1>Map</h1>
+
+<MapView Class="map-view" OnViewRendered="OnViewRendered"
+         Longitude="-100" Latitude="40"
+         Zoom="3"
+         OnLayerViewCreate="OnLayerViewCreate">
+    <Map>
+        <Basemap>
+            <BasemapStyle Name="BasemapStyleName.ArcgisStreetsReliefBase" />
+        </Basemap>
+        <GraphicsLayer @ref="_graphicsLayer" Title="Shipments">
+            
+        </GraphicsLayer>
+        <FeatureLayer Url="https://services9.arcgis.com/RHVPKKiFTONKtxq3/arcgis/rest/services/NDFD_Precipitation_v1/FeatureServer/0"
+                      Visible="@_showWeather"
+                      @ref="_weatherLayer" />
+        <MapImageLayer @ref="_trafficLayer" Visible="@_showTraffic">
+            <PortalItem PortalItemId="ff11eb5b930b4fabba15c47feb130de4" />
+        </MapImageLayer>
+    </Map>
+    <ExpandWidget Position="OverlayPosition.BottomLeft">
+        <GraphicsLegendWidget Label="Shipments"
+                              GraphicLabelTemplate="{Category}"
+                              GroupBySymbol="true"
+                              SelectGraphics="true"
+                              ToggleGraphics="true" />
+    </ExpandWidget>
+    <LayerListWidget Position="OverlayPosition.TopRight" />
+    <ExpandWidget Position="OverlayPosition.TopLeft">
+        <div class="map-controls">
+            <h4>Map Layers</h4>
+            <div class="form-check">
+                <RadzenCheckBox @bind-Value="_showWeather" Name="weatherToggle" />
+                <RadzenLabel Text="Show Weather" For="weatherToggle" Class="ms-2" />
+            </div>
+            <div class="form-check mt-2">
+                <RadzenCheckBox @bind-Value="_showTraffic" Name="trafficToggle" />
+                <RadzenLabel Text="Show Traffic" For="trafficToggle" Class="ms-2" />
+            </div>
+        </div>
+    </ExpandWidget>
+    <TimeSliderWidget @ref="_timeSliderWidget" Loop="true" Mode="TimeSliderMode.TimeWindow"
+                      ContainerId="time-slider-container">
+        <TickConfig Mode="TickConfigMode.Percent" Values="@([ 12.5, 37.5, 62.5, 87.5 ])"></TickConfig>
+    </TimeSliderWidget>
+</MapView>
+<div id="time-slider-container"></div>
+
+@code {
+
+    protected override bool LoadOnInitialize { get; set; } = true;
+    
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+
+        if (Model is not null && !_shipmentGraphics.Any())
+        {
+            foreach (var shipment in Model!)
+            {
+                dymaptic.GeoBlazor.Core.Components.Geometries.Point location = new(shipment.Longitude, shipment.Latitude);
+                Symbol symbol = new SimpleMarkerSymbol(new Outline(new MapColor("black"), 1), 
+                    CategoryColors.AllColors[shipment.Category!]);
+                PopupTemplate popupTemplate = new("{Name}",
+                    content:
+                    [
+                        new FieldsPopupContent(
+                        [
+                            new FieldInfo("Category"),
+                            new FieldInfo("SubCategory"),
+                            new FieldInfo("Latitude"),
+                            new FieldInfo("Longitude"),
+                            new FieldInfo("Quantity"),
+                            new FieldInfo("Weight")
+                        ])
+                    ]);
+                AttributesDictionary attributes = new(new Dictionary<string, object?>
+                {
+                    { "OBJECT_ID", shipment.ItemId },
+                    { "Category", shipment.Category },
+                    { "SubCategory", shipment.SubCategory },
+                    { "Name", shipment.Name },
+                    { "Latitude", shipment.Latitude },
+                    { "Longitude", shipment.Longitude },
+                    { "Quantity", shipment.Quantity },
+                    { "Weight", shipment.Weight }
+                });
+
+                Graphic graphic = new(location, symbol, popupTemplate, attributes);
+                _shipmentGraphics.Add(graphic);
+            }
+
+            if (!_graphicsAdded)
+            {
+                _graphicsAdded = true;
+                await _graphicsLayer!.Add(_shipmentGraphics);
+            }
+            StateHasChanged();
+        }
+    }
+
+    private async Task OnViewRendered()
+    {
+        if (_graphicsAdded) return;
+
+        try
+        {
+            _graphicsAdded = true;
+            await _graphicsLayer!.Add(_shipmentGraphics);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error adding graphics: {ex.Message}");
+            _graphicsAdded = false;
+        }
+    }
+
+    private async Task OnLayerViewCreate(LayerViewCreateEvent createEvent)
+    {
+        if (createEvent.Layer?.Id != _weatherLayer?.Id) return;
+
+        await _timeSliderWidget?.SetFullTimeExtent(_weatherLayer!.TimeInfo!.FullTimeExtent!)!;
+
+        await _timeSliderWidget.SetStops(new StopsByInterval(_weatherLayer!.TimeInfo?.Interval));
+    }
+
+    private readonly List<Graphic> _shipmentGraphics = [];
+    private GraphicsLayer? _graphicsLayer;
+    private FeatureLayer? _weatherLayer;
+    private MapImageLayer? _trafficLayer;
+    private TimeSliderWidget? _timeSliderWidget;
+    private bool _graphicsAdded;
+    private bool _showWeather;
+    private bool _showTraffic;
+}

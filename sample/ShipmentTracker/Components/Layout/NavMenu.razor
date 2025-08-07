@@ -1,0 +1,76 @@
+﻿<div class="top-row ps-3 navbar navbar-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="">
+            <img src="BlazingShipments.png" alt="Blazing Shipments" class="nav-logo-large"/>
+        </a>
+    </div>
+</div>
+
+<input type="checkbox" title="Navigation menu" class="navbar-toggler"/>
+
+<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
+    <nav class="flex-column">
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                <span class="nav-icon dashboard-icon" aria-hidden="true"></span> Dashboard
+            </NavLink>
+        </div>
+
+        <AuthorizeView>
+            <Authorized>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="map">
+                        <span class="nav-icon map-icon" aria-hidden="true"></span> Shipment Map
+                    </NavLink>
+                </div>
+
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="search">
+                        <span class="nav-icon search-icon" aria-hidden="true"></span> Search Shipments
+                    </NavLink>
+                </div>
+
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="pickup">
+                        <span class="nav-icon pickup-icon" aria-hidden="true"></span> Request Pickup
+                    </NavLink>
+                </div>
+                
+                <div class="nav-divider"></div>
+
+                <div class="nav-category">Management</div>
+
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="inventory">
+                        <span class="nav-icon inventory-icon" aria-hidden="true"></span> Inventory
+                    </NavLink>
+                </div>
+
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="reports">
+                        <span class="nav-icon reports-icon" aria-hidden="true"></span> Reports
+                    </NavLink>
+                </div>
+
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="settings">
+                        <span class="nav-icon settings-icon" aria-hidden="true"></span> Settings
+                    </NavLink>
+                </div>
+            </Authorized>
+            <NotAuthorized>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="Account/Register">
+                        <span class="bi bi-person-nav-menu" aria-hidden="true"></span> Register
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="Account/Login">
+                        <span class="bi bi-person-badge-nav-menu" aria-hidden="true"></span> Login
+                    </NavLink>
+                </div>
+            </NotAuthorized>
+        </AuthorizeView>
+    </nav>
+</div>
+

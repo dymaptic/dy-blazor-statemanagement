@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+    <PropertyGroup>
+        <TargetFramework>net9.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <UserSecretsId>9f7da3b7-cad2-485c-808e-dfc54474e75c</UserSecretsId>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="9.0.7" />
+      <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="9.0.7" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\dymaptic.Blazor.StateManagement\src\dymaptic.Blazor.StateManagement.Server\dymaptic.Blazor.StateManagement.Server.csproj" />
+      <ProjectReference Include="..\dymaptic.Blazor.StateManagement\src\dymaptic.Blazor.StateManagement\dymaptic.Blazor.StateManagement.csproj" />
+      <ProjectReference Include="..\ShipmentTracker.Client\ShipmentTracker.Client.csproj" />
+    </ItemGroup>
+
+</Project>

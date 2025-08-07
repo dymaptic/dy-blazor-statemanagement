@@ -1,0 +1,23 @@
+.shipment-details {
+    background-color: #f8f9fa;
+    padding: 1rem;
+    border-radius: 0.25rem;
+}
+
+.tracking-map {
+    height: 400px;
+    width: 100%;
+    border-radius: 0.25rem;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+}
+
+.badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.875rem;
+}
+
+.badge-pending { background-color: #ffc107; color: #000; }
+.badge-intransit { background-color: #0dcaf0; color: #000; }
+.badge-delivered { background-color: #198754; color: #fff; }
+.badge-delayed { background-color: #dc3545; color: #fff; }

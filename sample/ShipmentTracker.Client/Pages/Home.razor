@@ -1,0 +1,242 @@
+﻿@inherits CollectionStateComponentBase<Shipment>
+@page "/"
+@rendermode InteractiveServer
+
+<PageTitle>Home</PageTitle>
+<AuthorizeView>
+    <NotAuthorized>
+        <h1>Please Log In or Register</h1>
+        <NavLink href="Account/Login" class="rz-button rz-button-primary">
+            <RadzenText TextStyle="TextStyle.Button">Login</RadzenText>
+        </NavLink>
+        <NavLink href="Account/Register" class="rz-button rz-button-secondary">
+            <RadzenText TextStyle="TextStyle.Button">Register</RadzenText>
+        </NavLink>
+    </NotAuthorized>
+    <Authorized>
+        <h1>Shipments in Transit</h1>
+        <RadzenDataGrid Data="@Model"
+                        TItem="Shipment"
+                        AllowFiltering="true"
+                        AllowColumnResize="true"
+                        FilterMode="FilterMode.Advanced"
+                        LogicalFilterOperator="LogicalFilterOperator.Or"
+                        AllowSorting="true"
+                        PageSize="8"
+                        AllowPaging="true"
+                        PagerHorizontalAlign="HorizontalAlign.Left"
+                        ShowPagingSummary="true"
+                        SelectionMode="DataGridSelectionMode.Single"
+                        @bind-Value="@_selectedShipment">
+            <Columns>
+                <RadzenDataGridColumn TItem="Shipment"
+                                      Property="@(nameof(Shipment.ItemId))"
+                                      Title="Id"
+                                      Filterable="false"
+                                      Width="4rem"/>
+                <RadzenDataGridColumn TItem="Shipment"
+                                      Property="@(nameof(Shipment.Category))"
+                                      Title="Category"/>
+                <RadzenDataGridColumn TItem="Shipment"
+                                      Property="@(nameof(Shipment.SubCategory))"
+                                      Title="Sub-Category"/>
+                <RadzenDataGridColumn TItem="Shipment"
+                                      Property="@(nameof(Shipment.Name))"
+                                      Title="Item"/>
+                <RadzenDataGridColumn TItem="Shipment"
+                                      Property="@(nameof(Shipment.Quantity))"
+                                      Title="Qty"
+                                      Width="6rem"/>
+                <RadzenDataGridColumn TItem="Shipment"
+                                      Property="@(nameof(Shipment.Weight))"
+                                      Title="Wt."
+                                      Width="6rem"/>
+                <RadzenDataGridColumn TItem="Shipment"
+                                      Property="@(nameof(Shipment.Latitude))"
+                                      Title="Lat."
+                                      FormatString="{0:N2}"
+                                      Width="7rem"/>
+                <RadzenDataGridColumn TItem="Shipment"
+                                      Property="@(nameof(Shipment.Longitude))"
+                                      Title="Long."
+                                      FormatString="{0:N2}"
+                                      Width="7rem"/>
+
+            </Columns>
+        </RadzenDataGrid>
+    </Authorized>
+</AuthorizeView>
+
+@if (_selectedShipment.Any() && _startDates is not null)
+{
+    <br/>
+    var shipment = _selectedShipment.First();
+    var startDate = _startDates![shipment.ItemId];
+    DateOnly? arrivalDate = _arrivalDates.TryGetValue(shipment.ItemId, out var date)
+        ? date
+        : null;
+    <h2>@shipment.Name</h2>
+    <br/>
+    <div class="detail-row">
+        <RadzenTimeline style="width: 40%;">
+            <Items>
+                <RadzenTimelineItem>
+                    <LabelContent>
+                        <RadzenText TextStyle="TextStyle.Subtitle2" Class="rz-m-0">
+                            @startDate.ToLongDateString()
+                        </RadzenText>
+                    </LabelContent>
+                    <ChildContent>
+                        Shipment left the originating facility.
+                    </ChildContent>
+                </RadzenTimelineItem>
+                <RadzenTimelineItem PointStyle="PointStyle.Primary">
+                    <LabelContent>
+                        <RadzenText TextStyle="TextStyle.Subtitle2" Class="rz-m-0">
+                            @_today.ToLongDateString()
+                        </RadzenText>
+                    </LabelContent>
+                    <ChildContent>
+                        Shipment is in transit.
+                    </ChildContent>
+                </RadzenTimelineItem>
+                <RadzenTimelineItem>
+                    <LabelContent>
+                        <RadzenText TextStyle="TextStyle.Subtitle2" Class="rz-m-0">
+                            @(arrivalDate?.ToLongDateString() ?? "...")
+                        </RadzenText>
+                    </LabelContent>
+                    <ChildContent>
+                        Shipment is scheduled for delivery.
+                    </ChildContent>
+                </RadzenTimelineItem>
+            </Items>
+        </RadzenTimeline>
+        <div class="map-container">
+            <MapView @ref="_mapView"
+                     @key="shipment"
+                     Class="inline"
+                     Latitude="@shipment.Latitude"
+                     Longitude="@shipment.Longitude"
+                     OnViewRendered="() => OnViewRendered(shipment)"
+                     Zoom="6">
+                <Map>
+                    <Basemap>
+                        <BasemapStyle Name="BasemapStyleName.ArcgisStreets"/>
+                    </Basemap>
+                    <GraphicsLayer @ref="_graphicsLayer">
+                        <Graphic @ref="_shipmentGraphic" Attributes="BuildAttributes(shipment)">
+                            <Point Latitude="@shipment.Latitude" Longitude="@shipment.Longitude"/>
+                            <SimpleMarkerSymbol Color="CategoryColors.AllColors[shipment.Category]"/>
+                            <PopupTemplate Title="@shipment.Name">
+                                <FieldsPopupContent>
+                                    <FieldInfo FieldName="@nameof(Shipment.Category)"/>
+                                    <FieldInfo FieldName="@nameof(Shipment.SubCategory)"/>
+                                    <FieldInfo FieldName="@nameof(Shipment.Latitude)"/>
+                                    <FieldInfo FieldName="@nameof(Shipment.Longitude)"/>
+                                    <FieldInfo FieldName="@nameof(Shipment.Quantity)"/>
+                                    <FieldInfo FieldName="@nameof(Shipment.Weight)"/>
+                                </FieldsPopupContent>
+                            </PopupTemplate>
+                        </Graphic>
+                        <Graphic @ref="_warehouseGraphic">
+                            <Point Latitude="41.85003" Longitude="-87.65005"/>
+                            <PictureMarkerSymbol Url="warehouse.svg"/>
+                        </Graphic>
+                    </GraphicsLayer>
+                </Map>
+            </MapView>
+        </div>
+    </div>
+    <ol id="directions-widget" class="esri-widget esri-widget--panel esri-directions__scroller">
+        @foreach (var directionSet in _directions)
+        {
+            if (directionSet.Features is null) continue;
+            var travelTime = TimeSpan.FromMinutes(directionSet.TotalTime ?? 0);
+            var formattedTravelTime = (travelTime.Days > 0 ? $"{travelTime.Days} Days, " : "") +
+                                        (travelTime.Hours > 0 ? $"{travelTime.Hours} Hours, " : "") +
+                                        $"{travelTime.Minutes} Minutes";
+            <h3>Drive Time: @formattedTravelTime</h3>
+            foreach (var direction in directionSet.Features)
+            {
+                <li>@(direction.Attributes["text"]) (@(double.Parse(direction.Attributes["length"]!.ToString()!).ToString("F")) miles)</li>
+            }
+        }
+    </ol>
+}
+
+@code {
+
+    [Inject] 
+    public required RouteService Route { get; set; }
+
+    protected override bool LoadOnInitialize { get; set; } = true;
+
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+        if (Authenticated && Model is not null)
+        {
+            _startDates ??= Model!.ToDictionary(s => s.ItemId, s =>
+                _today.AddDays(-_random.Next(3, 20)));
+            StateHasChanged();
+        }
+    }
+
+    private AttributesDictionary BuildAttributes(Shipment shipment)
+    {
+        return new AttributesDictionary(new Dictionary<string, object?>
+        {
+            { "OBJECT_ID", shipment.ItemId },
+            { "Category", shipment.Category },
+            { "SubCategory", shipment.SubCategory },
+            { "Name", shipment.Name },
+            { "Latitude", shipment.Latitude },
+            { "Longitude", shipment.Longitude },
+            { "Quantity", shipment.Quantity },
+            { "Weight", shipment.Weight }
+        });
+    }
+
+    private async Task OnViewRendered(Shipment shipment)
+    {
+        if (shipment == _currentShipment) return;
+
+        _currentShipment = shipment;
+        // copy to remove unwanted attributes
+        var shipmentClone = new Graphic(_shipmentGraphic!.Geometry);
+        RouteParameters routeParameters = new()
+        {
+            FeatureSetStops = new FeatureSet
+            {
+                Features = [shipmentClone, _warehouseGraphic!]
+            },
+            ReturnDirections = true,
+            DirectionsTimeAttribute = DirectionsTimeAttribute.Minutes
+        };
+        var result = await Route.Solve(_routeUrl, routeParameters);
+        var routeGraphic = result.RouteResults?.FirstOrDefault()?.Route;
+        if (routeGraphic != null)
+        {
+            await routeGraphic.SetSymbol(new SimpleLineSymbol(new MapColor(0, 0, 255, 0.5), 5));
+            await _graphicsLayer!.Add(routeGraphic);
+            await _mapView!.GoTo([routeGraphic, shipmentClone, _warehouseGraphic!]);
+            _directions = result.RouteResults!.Select(r => r.Directions!).ToArray();
+            _arrivalDates[shipment.ItemId] = DateOnly.FromDateTime(DateTime.Now.AddMinutes(_directions.Sum(d => d.TotalTime ?? 0)));
+        }
+    }
+
+    private readonly DateOnly _today = DateOnly.FromDateTime(DateTime.Today);
+    private Dictionary<int, DateOnly>? _startDates;
+    private readonly Dictionary<int, DateOnly> _arrivalDates = [];
+    private IList<Shipment> _selectedShipment = [];
+    private readonly Random _random = new();
+    private Shipment? _currentShipment;
+    private MapView? _mapView;
+    private GraphicsLayer? _graphicsLayer;
+    private Graphic? _shipmentGraphic;
+    private Graphic? _warehouseGraphic;
+    private DirectionsFeatureSet[] _directions = [];
+    private readonly string _routeUrl = "https://route-api.arcgis.com/arcgis/rest/services/World/Route/NAServer/Route_World";
+}

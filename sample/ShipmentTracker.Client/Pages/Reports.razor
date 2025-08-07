@@ -1,0 +1,45 @@
+@inherits CollectionStateComponentBase<MonthlyStat>
+@page "/reports"
+@rendermode InteractiveWebAssembly
+
+<PageTitle>Reports</PageTitle>
+<h1>Delivery Reports</h1>
+
+<div class="content">
+    <h2>Performance Metrics</h2>
+    <div class="shipment-stats">
+        <div class="stat-card">
+            <div class="stat-value">@_onTimeDeliveryRate%</div>
+            <div class="stat-label">On-Time Delivery Rate</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">@_avgDeliveryTime days</div>
+            <div class="stat-label">Average Delivery Time</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">@_customerSatisfaction/5</div>
+            <div class="stat-label">Customer Satisfaction</div>
+        </div>
+    </div>
+
+    <h2>Monthly Summary</h2>
+    <RadzenDataGrid Data="@Model" TItem="MonthlyStat" AllowSorting="true">
+        <Columns>
+            <RadzenDataGridColumn TItem="MonthlyStat" Property="Month" Title="Month" />
+            <RadzenDataGridColumn TItem="MonthlyStat" Property="TotalShipments" Title="Total Shipments" />
+            <RadzenDataGridColumn TItem="MonthlyStat" Property="Revenue" Title="Revenue" FormatString="{0:C}" />
+            <RadzenDataGridColumn TItem="MonthlyStat" Property="OnTimeRate" Title="On-Time Rate" FormatString="{0}%" />
+        </Columns>
+    </RadzenDataGrid>
+
+    <div class="mt-4">
+        <RadzenButton Text="Export to PDF" Icon="picture_as_pdf" ButtonStyle="ButtonStyle.Primary" />
+        <RadzenButton Text="Export to Excel" Icon="table_chart" ButtonStyle="ButtonStyle.Success" Class="ms-2" />
+    </div>
+</div>
+
+@code {
+    private int _onTimeDeliveryRate = 94;
+    private double _avgDeliveryTime = 2.3;
+    private double _customerSatisfaction = 4.6;
+}

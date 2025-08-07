@@ -1,0 +1,161 @@
+@inherits StateComponentBase<PickupRequestModel>
+@page "/pickup"
+@rendermode InteractiveServer
+
+<PageTitle>Request Pickup</PageTitle>
+<h1>Request Package Pickup</h1>
+
+<div class="content">
+    @if (_isSubmitted)
+    {
+        <div class="alert alert-success">
+            <h4>Pickup Request Submitted!</h4>
+            <p>Your pickup request has been received. Confirmation number: <strong>@_confirmationNumber</strong></p>
+            <p>We will contact you at @Model?.SenderEmail to confirm the pickup time.</p>
+            <RadzenButton Text="Submit Another Request" Icon="add" ButtonStyle="ButtonStyle.Primary" Click="ResetForm" />
+        </div>
+    }
+    else if (Model is not null)
+    {
+        <EditForm Model="@Model" OnValidSubmit="SubmitPickupRequest">
+            <DataAnnotationsValidator />
+            
+            <div class="pickup-form">
+                <h3>Sender Information</h3>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <RadzenLabel Text="Full Name *" />
+                        <RadzenTextBox @bind-Value="@Model!.SenderName" Class="w-100" />
+                        <ValidationMessage For="@(() => Model!.SenderName)" />
+                    </div>
+                    <div class="col-md-6">
+                        <RadzenLabel Text="Email *" />
+                        <RadzenTextBox @bind-Value="Model!.SenderEmail" Class="w-100" />
+                        <ValidationMessage For="@(() => Model!.SenderEmail)" />
+                    </div>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <RadzenLabel Text="Phone Number *" />
+                        <RadzenTextBox @bind-Value="Model!.SenderPhone" Class="w-100" />
+                        <ValidationMessage For="@(() => Model!.SenderPhone)" />
+                    </div>
+                    <div class="col-md-6">
+                        <RadzenLabel Text="Company (Optional)" />
+                        <RadzenTextBox @bind-Value="Model!.Company" Class="w-100" />
+                    </div>
+                </div>
+                
+                <h3>Pickup Address</h3>
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <RadzenLabel Text="Street Address *" />
+                        <RadzenTextBox @bind-Value="Model!.PickupAddress" Class="w-100" />
+                        <ValidationMessage For="@(() => Model!.PickupAddress)" />
+                    </div>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <RadzenLabel Text="City *" />
+                        <RadzenTextBox @bind-Value="Model!.City" Class="w-100" />
+                        <ValidationMessage For="@(() => Model!.City)" />
+                    </div>
+                    <div class="col-md-4">
+                        <RadzenLabel Text="State *" />
+                        <RadzenTextBox @bind-Value="Model!.State" Class="w-100" />
+                        <ValidationMessage For="@(() => Model!.State)" />
+                    </div>
+                    <div class="col-md-4">
+                        <RadzenLabel Text="ZIP Code *" />
+                        <RadzenTextBox @bind-Value="Model!.ZipCode" Class="w-100" />
+                        <ValidationMessage For="@(() => Model!.ZipCode)" />
+                    </div>
+                </div>
+                
+                <h3>Package Details</h3>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <RadzenLabel Text="Number of Packages *" />
+                        <RadzenNumeric @bind-Value="Model!.NumberOfPackages" Min="1" Max="100" Class="w-100" />
+                    </div>
+                    <div class="col-md-6">
+                        <RadzenLabel Text="Total Weight (lbs) *" />
+                        <RadzenNumeric @bind-Value="Model!.TotalWeight" Min="0.1m" Max="1000m" Step="0.1m" Class="w-100" ShowUpDown="false" />
+                    </div>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <RadzenLabel Text="Package Category *" />
+                        <RadzenDropDown @bind-Value="Model!.Category" Data="@_categories" Class="w-100" />
+                    </div>
+                    <div class="col-md-6">
+                        <RadzenLabel Text="Package Size *" />
+                        <RadzenDropDown @bind-Value="Model!.PackageSize" Data="@_packageSizes" Class="w-100" />
+                    </div>
+                </div>
+                
+                <h3>Pickup Schedule</h3>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <RadzenLabel Text="Preferred Pickup Date *" />
+                        <RadzenDatePicker @bind-Value="Model!.RequestedPickupDate" 
+                            Min="DateTime.Today.AddDays(1)" DateFormat="MM/dd/yyyy" Class="w-100" />
+                    </div>
+                    <div class="col-md-6">
+                        <RadzenLabel Text="Time Window *" />
+                        <RadzenDropDown @bind-Value="Model!.TimeWindow" Data="@_timeWindows" Class="w-100" />
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <RadzenLabel Text="Special Instructions (Optional)" />
+                    <RadzenTextArea @bind-Value="Model!.SpecialInstructions" Rows="3" Class="w-100" 
+                        Placeholder="Any special handling instructions or access information..." />
+                </div>
+                
+                <div class="form-actions">
+                    <RadzenButton ButtonType="ButtonType.Submit" Text="Submit Pickup Request" 
+                        Icon="local_shipping" ButtonStyle="ButtonStyle.Primary" />
+                    <RadzenButton Text="Cancel" Icon="cancel" ButtonStyle="ButtonStyle.Light" 
+                        Click="@(() => NavigationManager.NavigateTo("/"))" Class="ms-2" />
+                </div>
+            </div>
+        </EditForm>
+    }
+</div>
+
+
+@code {
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        Model = new PickupRequestModel();
+    }
+
+    private bool _isSubmitted;
+    private string _confirmationNumber = string.Empty;
+
+    private readonly List<string> _categories = CategoryColors.AllColors.Keys.ToList();
+    private readonly List<string> _packageSizes = ["Small (up to 1 cu ft)", "Medium (1-3 cu ft)", "Large (3-6 cu ft)", "Extra Large (6+ cu ft)"];
+    private readonly List<string> _timeWindows = ["8:00 AM - 12:00 PM", "12:00 PM - 4:00 PM", "4:00 PM - 6:00 PM", "Any Time"];
+
+    private void SubmitPickupRequest()
+    {
+        // In a real app, this would save to the database
+        _confirmationNumber = $"PU{DateTime.Now:yyyyMMdd}{Random.Shared.Next(1000, 9999)}";
+        _isSubmitted = true;
+        
+        Console.WriteLine($"Pickup request submitted: {_confirmationNumber}");
+    }
+
+    private async Task ResetForm()
+    {
+        await New();
+        _isSubmitted = false;
+        _confirmationNumber = string.Empty;
+    }
+}

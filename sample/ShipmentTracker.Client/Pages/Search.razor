@@ -1,0 +1,129 @@
+@inherits CollectionStateComponentBase<Shipment>
+@page "/search"
+@rendermode InteractiveAuto
+
+<PageTitle>Search Shipments</PageTitle>
+<h1>Search Shipments</h1>
+
+<div class="content">
+    <div class="search-form">
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <RadzenLabel Text="Tracking Number" />
+                <RadzenTextBox @bind-Value="_trackingNumber" Placeholder="Enter tracking number..." Class="w-100" />
+            </div>
+            <div class="col-md-6">
+                <RadzenLabel Text="Customer Name" />
+                <RadzenTextBox @bind-Value="_customerName" Placeholder="Enter customer name..." Class="w-100" />
+            </div>
+        </div>
+        
+        <div class="row mb-3">
+            <div class="col-md-3">
+                <RadzenLabel Text="Start Date" />
+                <RadzenDatePicker @bind-Value="_startDate" DateFormat="MM/dd/yyyy" Class="w-100" />
+            </div>
+            <div class="col-md-3">
+                <RadzenLabel Text="End Date" />
+                <RadzenDatePicker @bind-Value="_endDate" DateFormat="MM/dd/yyyy" Class="w-100" />
+            </div>
+            <div class="col-md-3">
+                <RadzenLabel Text="Status" />
+                <RadzenDropDown @bind-Value="_selectedStatus" Data="@_statusOptions" 
+                    TextProperty="Text" ValueProperty="Value" 
+                    AllowClear="true" Placeholder="All statuses" Class="w-100" />
+            </div>
+            <div class="col-md-3 d-flex align-items-end">
+                <RadzenButton Text="Search" Icon="search" ButtonStyle="ButtonStyle.Primary" Click="SearchShipments" />
+                <RadzenButton Text="Clear" Icon="clear" ButtonStyle="ButtonStyle.Light" Click="ClearSearch" Class="ms-2" />
+            </div>
+        </div>
+    </div>
+
+    @if (Model != null)
+    {
+        <h2>Search Results (@Model.Count shipments found)</h2>
+        <RadzenDataGrid Data="@Model" TItem="Shipment" AllowPaging="true" PageSize="10">
+            <Columns>
+                <RadzenDataGridColumn TItem="Shipment" Property="TrackingNumber" Title="Tracking #" Width="120px">
+                    <Template Context="shipment">
+                        <a href="/track/@shipment.TrackingNumber" class="text-primary">@shipment.TrackingNumber</a>
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="Shipment" Property="CustomerName" Title="Customer" />
+                <RadzenDataGridColumn TItem="Shipment" Property="Name" Title="Item" />
+                <RadzenDataGridColumn TItem="Shipment" Property="Status" Title="Status">
+                    <Template Context="shipment">
+                        <span class="badge @GetStatusBadgeClass(shipment.Status)">@shipment.Status</span>
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="Shipment" Property="CreatedDate" Title="Created" FormatString="{0:MM/dd/yyyy}" />
+                <RadzenDataGridColumn TItem="Shipment" Property="DestinationAddress" Title="Destination" />
+            </Columns>
+        </RadzenDataGrid>
+    }
+</div>
+
+@code {
+
+    private string? _trackingNumber;
+    private string? _customerName;
+    private DateTime? _startDate;
+    private DateTime? _endDate;
+    private ShipmentStatus? _selectedStatus;
+    protected override bool LoadOnInitialize { get; set; } = false;
+
+    private readonly List<StatusOption> _statusOptions =
+    [
+        new() { Text = "Pending", Value = ShipmentStatus.Pending },
+        new() { Text = "In Transit", Value = ShipmentStatus.InTransit },
+        new() { Text = "Delivered", Value = ShipmentStatus.Delivered },
+        new() { Text = "Delayed", Value = ShipmentStatus.Delayed }
+    ];
+
+    private async Task SearchShipments()
+    {
+        QueryParams = new Dictionary<string, string>
+        {
+            [nameof(Shipment.TrackingNumber)] = _trackingNumber ?? string.Empty,
+            [nameof(Shipment.CustomerName)] = _customerName ?? string.Empty,
+            [nameof(Shipment.CreatedDate)] = _startDate.HasValue ? _startDate.ToString()! : string.Empty,
+            [nameof(Shipment.DeliveredDate)] = _endDate.HasValue ? _endDate.ToString()! : string.Empty,
+            [nameof(Shipment.Status)] = _selectedStatus?.ToString() ?? string.Empty
+        };
+
+        var result = await Load();
+        Console.WriteLine(result.Message);
+        Console.WriteLine($"Results loaded: {Model?.Count} shipments found.");
+        StateHasChanged();
+    }
+
+    private async Task ClearSearch()
+    {
+        _trackingNumber = null;
+        _customerName = null;
+        _startDate = null;
+        _endDate = null;
+        _selectedStatus = null;
+        await Clear();
+        Model = null;
+    }
+
+    private string GetStatusBadgeClass(ShipmentStatus status)
+    {
+        return status switch
+        {
+            ShipmentStatus.Pending => "badge-pending",
+            ShipmentStatus.InTransit => "badge-intransit",
+            ShipmentStatus.Delivered => "badge-delivered",
+            ShipmentStatus.Delayed => "badge-delayed",
+            _ => "badge-secondary"
+        };
+    }
+
+    private class StatusOption
+    {
+        public string Text { get; set; } = string.Empty;
+        public ShipmentStatus Value { get; set; }
+    }
+}

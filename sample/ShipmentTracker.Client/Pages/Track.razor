@@ -1,0 +1,231 @@
+@inherits StateComponentBase<Shipment>
+@page "/track/{TrackingNumber}"
+@rendermode InteractiveWebAssembly
+
+<PageTitle>Track Shipment - @TrackingNumber</PageTitle>
+
+@if (Model is null)
+{
+    <div class="alert alert-warning">
+        <h4>Shipment Not Found</h4>
+        <p>No shipment found with tracking number: <strong>@TrackingNumber</strong></p>
+        <a href="/search" class="btn btn-primary">Search for Another Shipment</a>
+    </div>
+}
+else
+{
+    <h1>Track Shipment: @Model.TrackingNumber</h1>
+    
+    <div class="content">
+        <div class="row">
+            <div class="col-md-6">
+                <div class="shipment-details">
+                    <h3>Shipment Details</h3>
+                    <table class="table">
+                        <tr>
+                            <td><strong>Status:</strong></td>
+                            <td><span class="badge @GetStatusBadgeClass(Model.Status)">@Model.Status</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Customer:</strong></td>
+                            <td>@Model.CustomerName</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Email:</strong></td>
+                            <td>@Model.CustomerEmail</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Item:</strong></td>
+                            <td>@Model.Name</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Category:</strong></td>
+                            <td>@Model.Category / @Model.SubCategory</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Weight:</strong></td>
+                            <td>@Model.Weight.ToString("F2") lbs</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Origin:</strong></td>
+                            <td>@Model.OriginAddress</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Destination:</strong></td>
+                            <td>@Model.DestinationAddress</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Created:</strong></td>
+                            <td>@Model.CreatedDate.ToString("MM/dd/yyyy HH:mm")</td>
+                        </tr>
+                        @if (Model.DeliveredDate.HasValue)
+                        {
+                            <tr>
+                                <td><strong>Delivered:</strong></td>
+                                <td>@Model.DeliveredDate.Value.ToString("MM/dd/yyyy HH:mm")</td>
+                            </tr>
+                        }
+                    </table>
+                </div>
+                
+                <div class="delivery-instructions mt-4">
+                    <h3>Delivery Instructions</h3>
+                    <RadzenTextArea @bind-Value="_deliveryInstructions" Rows="3" Class="w-100" 
+                        Placeholder="Add special delivery instructions..." />
+                    <RadzenButton Text="Update Instructions" Icon="save" ButtonStyle="ButtonStyle.Primary" 
+                        Click="UpdateDeliveryInstructions" Class="mt-2" />
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <h3>Current Location</h3>
+                <MapView Class="tracking-map" 
+                         Latitude="@Model.Latitude" 
+                         Longitude="@Model.Longitude" 
+                         Zoom="10">
+                    <Map>
+                        <Basemap>
+                            <BasemapStyle Name="BasemapStyleName.ArcgisStreets" />
+                        </Basemap>
+                        <GraphicsLayer>
+                            <Graphic>
+                                <Point Latitude="@Model.Latitude" Longitude="@Model.Longitude" />
+                                <SimpleMarkerSymbol Color="@CategoryColors.AllColors[Model.Category!]" Size="16" />
+                                <PopupTemplate Title="@Model.Name">
+                                    <TextPopupContent Text="Current Location" />
+                                </PopupTemplate>
+                            </Graphic>
+                        </GraphicsLayer>
+                    </Map>
+                </MapView>
+                
+                <div class="tracking-timeline mt-4">
+                    <h3>Tracking History</h3>
+                    <RadzenTimeline>
+                        <Items>
+                            @foreach (var evt in _trackingEvents)
+                            {
+                                <RadzenTimelineItem PointStyle="@GetTimelinePointStyle(evt)">
+                                    <LabelContent>
+                                        <RadzenText TextStyle="TextStyle.Subtitle2" Class="rz-m-0">
+                                            @evt.Timestamp.ToString("MM/dd HH:mm")
+                                        </RadzenText>
+                                    </LabelContent>
+                                    <ChildContent>
+                                        <strong>@evt.Location</strong><br/>
+                                        @evt.Description
+                                    </ChildContent>
+                                </RadzenTimelineItem>
+                            }
+                        </Items>
+                    </RadzenTimeline>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] 
+    public string TrackingNumber { get; set; } = string.Empty;
+
+    private List<TrackingEvent> _trackingEvents = [];
+    private string _deliveryInstructions = string.Empty;
+    protected override bool LoadOnInitialize { get; set; } = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        await Search(new Dictionary<string, string>()
+        {
+            { "TrackingNumber", TrackingNumber }
+        });
+        
+        if (Model != null)
+        {
+            GenerateTrackingEvents();
+        }
+    }
+
+    private void GenerateTrackingEvents()
+    {
+        _trackingEvents.Clear();
+        
+        // Create shipment event
+        _trackingEvents.Add(new TrackingEvent(
+            Model!.CreatedDate,
+            Model.OriginAddress!,
+            "Package received at origin facility",
+            41.85003,
+            -87.65005
+        ));
+
+        // In transit events
+        if (Model.Status != ShipmentStatus.Pending)
+        {
+            var transitTime = Model.CreatedDate.AddHours(Random.Shared.Next(2, 8));
+            _trackingEvents.Add(new TrackingEvent(
+                transitTime,
+                "Distribution Center, Indianapolis, IN",
+                "Package in transit",
+                39.7684,
+                -86.1581
+            ));
+        }
+
+        // Current location event
+        if (Model.Status == ShipmentStatus.InTransit || Model.Status == ShipmentStatus.Delayed)
+        {
+            _trackingEvents.Add(new TrackingEvent(
+                DateTime.Now.AddHours(-Random.Shared.Next(1, 6)),
+                "Local Facility",
+                Model.Status == ShipmentStatus.Delayed ? "Package delayed - weather conditions" : "Out for delivery",
+                Model.Latitude,
+                Model.Longitude
+            ));
+        }
+
+        // Delivered event
+        if (Model.Status == ShipmentStatus.Delivered && Model.DeliveredDate.HasValue)
+        {
+            _trackingEvents.Add(new TrackingEvent(
+                Model.DeliveredDate.Value,
+                Model.DestinationAddress!,
+                "Package delivered",
+                Model.Latitude,
+                Model.Longitude
+            ));
+        }
+
+        _trackingEvents = _trackingEvents.OrderBy(e => e.Timestamp).ToList();
+    }
+
+    private void UpdateDeliveryInstructions()
+    {
+        // In a real app, this would save to the database
+        Console.WriteLine($"Updated delivery instructions for {TrackingNumber}: {_deliveryInstructions}");
+    }
+
+    private string GetStatusBadgeClass(ShipmentStatus status)
+    {
+        return status switch
+        {
+            ShipmentStatus.Pending => "badge-pending",
+            ShipmentStatus.InTransit => "badge-intransit",
+            ShipmentStatus.Delivered => "badge-delivered",
+            ShipmentStatus.Delayed => "badge-delayed",
+            _ => "badge-secondary"
+        };
+    }
+
+    private PointStyle GetTimelinePointStyle(TrackingEvent evt)
+    {
+        if (evt.Description.Contains("delivered", StringComparison.OrdinalIgnoreCase))
+            return PointStyle.Success;
+        if (evt.Description.Contains("delayed", StringComparison.OrdinalIgnoreCase))
+            return PointStyle.Danger;
+        if (evt.Description.Contains("out for delivery", StringComparison.OrdinalIgnoreCase))
+            return PointStyle.Primary;
+        return PointStyle.Secondary;
+    }
+}
