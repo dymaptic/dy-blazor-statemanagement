@@ -9,7 +9,7 @@ namespace dymaptic.Blazor.StateManagement.Server;
 
 public class ServerStateManager<T>(StateManagementDbContext dbContext,
     HybridCache hybridCache, IConfiguration configuration,
-    TimeProvider timeProvider, Logger<ServerStateManager<T>> logger)
+    TimeProvider timeProvider, ILogger<ServerStateManager<T>> logger)
     : IStateManager<T> where T : StateRecord
 {
     public void Initialize(string userId)
