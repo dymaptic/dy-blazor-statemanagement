@@ -12,6 +12,7 @@ public static class StateManagementInitialization
     {
         services.AddIndexedDb(stateRecordTypes, indexedDbVersion);
         services.AddSingleton(TimeProvider.System);
+        services.AddHybridCache();
         services.AddDbContext<StateManagementDbContext, TDbContext>(dbContextOptionsAction);
         Type initializerType = typeof(StateManagementInitialization);
         MethodInfo addServerStateManagerMethod = initializerType

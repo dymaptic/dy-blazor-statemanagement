@@ -13,50 +13,66 @@ public class ClientStateManager<T>(HttpClient httpClient, IndexedDb indexedDb, T
     public void Initialize(string userId)
     {
         _userId = userId;
+        IsInitialized = true;
     }
+
+    public bool IsInitialized { get; private set; }
     
+    public async ValueTask<T> New(CancellationToken cancellationToken = default)
+    {
+        DateTime time = timeProvider.GetUtcNow().DateTime;
+        T newModel = Activator.CreateInstance<T>() with
+        {
+            Id = Guid.NewGuid(), 
+            LastUpdatedUtc = time, 
+            CreatedUtc = time
+        };
+        
+        await ResetLocalCacheAndStacks(cancellationToken);
+
+        return newModel;
+    }
+
     public async ValueTask<T> Load(Guid id, CancellationToken cancellationToken = default)
     {
-        var url = $"{_apiBaseUrl}/{id}";
+        T? model = await LoadFromIndexedDb(id, cancellationToken);
 
-        T? result = await httpClient.GetFromJsonAsync<T>(url, cancellationToken);
-
-        if (result is not null)
+        if (model is null)
         {
-            return result;
+            await ResetLocalCacheAndStacks(cancellationToken);
+            var url = $"{_apiBaseUrl}/{id}";
+            model = await httpClient.GetFromJsonAsync<T>(url, cancellationToken);
+            if (model is null)
+            {
+                throw new InvalidOperationException($"State record with ID {id} not found.");
+            }
         }
-        
-        throw new InvalidOperationException($"Failed to load state record with ID {id}");
+
+        _undoStack.Clear();
+        _redoStack.Clear();
+        await SaveToIndexedDb(model, cancellationToken);
+        return model;
     }
     
     public virtual async ValueTask<T> Track(T model, CancellationToken cancellationToken = default)
     {
-        try
+        if (model == _previousState)
         {
-            if (model == _previousState)
-            {
-                logger.LogInformation("No changes detected, skipping tracking.");
-                return model;
-            }
-
-            _previousState = model with { };
-
-            DateTime time = timeProvider.GetUtcNow().DateTime;
-
-            T snapShot = model with { LastUpdatedUtc = time };
-            _undoStack.Push(snapShot);
-            await SaveToIndexedDb(snapShot, cancellationToken);
+            logger.LogInformation("No changes detected, skipping tracking.");
             return model;
         }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Failed to track changes");
 
-            return model;
-        }
+        _previousState = model with { };
+
+        DateTime time = timeProvider.GetUtcNow().DateTime;
+
+        T snapShot = model with { LastUpdatedUtc = time };
+        _undoStack.Push(snapShot);
+        await SaveToIndexedDb(snapShot, cancellationToken);
+        return model;
     }
 
-    public async ValueTask<T> Search(Dictionary<string, string> queryParams, CancellationToken cancellationToken = default)
+    public async ValueTask<T?> Search(Dictionary<string, string> queryParams, CancellationToken cancellationToken = default)
     {
         string queryString = BuildQueryString(queryParams);
         string url = $"{_apiBaseUrl}/search?{queryString}";
@@ -65,17 +81,17 @@ public class ClientStateManager<T>(HttpClient httpClient, IndexedDb indexedDb, T
 
         if (result is not null)
         {
-            return result;
+            _undoStack.Clear();
+            _redoStack.Clear();
+            await SaveToIndexedDb(result, cancellationToken);
         }
-
-        throw new InvalidOperationException($"Failed to search state records with query '{queryString}'");
+        
+        return result;
     }
 
     public async ValueTask<T> Save(T model, CancellationToken cancellationToken = default)
     {
-        string url = _apiBaseUrl;
-
-        Task<HttpResponseMessage> response = httpClient.PostAsJsonAsync(url, model, cancellationToken);
+        Task<HttpResponseMessage> response = httpClient.PostAsJsonAsync(_apiBaseUrl, model, cancellationToken);
 
         if (response.IsCompletedSuccessfully)
         {
@@ -83,6 +99,7 @@ public class ClientStateManager<T>(HttpClient httpClient, IndexedDb indexedDb, T
             
             if (result is not null)
             {
+                await SaveToIndexedDb(result, cancellationToken);
                 return result;
             }
         }
@@ -92,21 +109,30 @@ public class ClientStateManager<T>(HttpClient httpClient, IndexedDb indexedDb, T
 
     public async ValueTask<T> Update(T model, CancellationToken cancellationToken = default)
     {
-        string url = _apiBaseUrl;
-
-        Task<HttpResponseMessage> response = httpClient.PutAsJsonAsync(url, model, cancellationToken);
-
-        if (response.IsCompletedSuccessfully)
+        if (model == _previousState)
         {
-            T? result = await response.Result.Content.ReadFromJsonAsync<T>(cancellationToken);
-            
-            if (result is not null)
-            {
-                return result;
-            }
+            return model;
         }
 
-        throw new InvalidOperationException("Failed to update state record");
+        _previousState = model with { };
+
+        DateTime time = timeProvider.GetUtcNow().DateTime;
+
+        T snapShot = model with { LastUpdatedUtc = time };
+        _undoStack.Push(snapShot);
+        await SaveToIndexedDb(snapShot, cancellationToken);
+            
+        HttpResponseMessage response = await httpClient.PutAsJsonAsync(_apiBaseUrl, model, cancellationToken);
+
+        response.EnsureSuccessStatusCode();
+        T? result = await response.Content.ReadFromJsonAsync<T>(cancellationToken);
+            
+        if (result is not null)
+        {
+            return result;
+        }
+            
+        return snapShot;
     }
 
     public async ValueTask Delete(Guid id, CancellationToken cancellationToken = default)
@@ -115,12 +141,10 @@ public class ClientStateManager<T>(HttpClient httpClient, IndexedDb indexedDb, T
 
         HttpResponseMessage response = await httpClient.DeleteAsync(url, cancellationToken);
 
-        if (response.IsSuccessStatusCode)
-        {
-            return;
-        }
-
-        throw new InvalidOperationException($"Failed to delete state record with ID {id}");
+        response.EnsureSuccessStatusCode();
+        _undoStack.Clear();
+        _redoStack.Clear();
+        await indexedDb.Delete<T>(id, cancellationToken);
     }
 
     public async ValueTask<List<T>> LoadAll(Dictionary<string, string>? queryParams,
@@ -161,6 +185,37 @@ public class ClientStateManager<T>(HttpClient httpClient, IndexedDb indexedDb, T
         throw new InvalidOperationException("Failed to save state records");
     }
     
+    public async ValueTask<T?> Undo(CancellationToken cancellationToken = default)
+    {
+        if (_undoStack.Count == 0)
+        {
+            logger.LogWarning("Undo stack is empty, cannot perform undo operation.");
+            return null;
+        }
+
+        T lastItem = _undoStack.Pop();
+        _redoStack.Push(lastItem);
+        
+        await SaveToIndexedDb(lastItem, cancellationToken);
+
+        return lastItem;
+    }
+    
+    public async ValueTask<T?> Redo(CancellationToken cancellationToken = default)
+    {
+        if (_redoStack.Count == 0)
+        {
+            logger.LogWarning("Redo stack is empty, cannot perform redo operation.");
+            return null;
+        }
+
+        T lastItem = _redoStack.Pop();
+        _undoStack.Push(lastItem);
+        
+        await SaveToIndexedDb(lastItem, cancellationToken);
+        return lastItem;
+    }
+    
     private string BuildQueryString(Dictionary<string, string> queryParams)
     {
         return string.Join("&", queryParams.Select(kvp => 
@@ -193,11 +248,30 @@ public class ClientStateManager<T>(HttpClient httpClient, IndexedDb indexedDb, T
         return null;
     }
     
+    private async Task ResetLocalCacheAndStacks(CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (_undoStack.Count > 0)
+            {
+                T lastItem = _undoStack.Pop();
+                await indexedDb.Delete<CacheStorageRecord<T>>(lastItem.Id, cancellationToken);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to delete last item from IndexedDb");
+        }
+
+        _undoStack.Clear();
+        _redoStack.Clear();
+    }
+    
     public Type ModelType => typeof(T);
-    private TimeSpan _cacheDuration = TimeSpan.FromMinutes(configuration.GetValue("StateManagement:_cacheDuration", 5));
-    private readonly string _apiBaseUrl = $"api/state/{typeof(T).Name.ToLowerInvariant()}";
-    private StateRecord? _previousState;
     private readonly Stack<T> _undoStack = [];
     private readonly Stack<T> _redoStack = [];
+    private readonly TimeSpan _cacheDuration = TimeSpan.FromMinutes(configuration.GetValue("StateManagement:_cacheDuration", 5));
+    private readonly string _apiBaseUrl = $"api/state/{typeof(T).Name.ToLowerInvariant()}";
+    private StateRecord? _previousState;
     private string? _userId;
 }

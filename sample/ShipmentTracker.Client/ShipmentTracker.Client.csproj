@@ -12,12 +12,12 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="dymaptic.GeoBlazor.Pro" Version="4.2.0-beta-2.1" />
+        <PackageReference Include="dymaptic.GeoBlazor.Pro" Version="4.2.0-beta-1.3" />
         <PackageReference Include="Radzen.Blazor" Version="7.1.6" />
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\dymaptic.Blazor.StateManagement\src\dymaptic.Blazor.StateManagement\dymaptic.Blazor.StateManagement.csproj" />
+      <ProjectReference Include="..\..\src\dymaptic.Blazor.StateManagement\dymaptic.Blazor.StateManagement.csproj" />
     </ItemGroup>
 
 </Project>

@@ -21,41 +21,39 @@ public abstract class StateComponentBase<T> : ComponentBase where T : StateRecor
     
     [Inject]
     public required NavigationManager NavigationManager { get; set; }
+    
+    [Inject]
+    public required TimeProvider TimeProvider { get; set; }
 
     public T? Model { get; protected set; }
     
     protected virtual bool LoadOnInitialize { get; set; }
 
-    public virtual async ValueTask<StateResult> Update(CancellationToken cancellationToken = default)
+    protected virtual async Task Update(CancellationToken cancellationToken = default)
     {
         if (!Authenticated)
         {
-            return new StateResult(false, "User not authenticated");
+            _errorMessage = "User not authenticated";
+            return;
         }
 
-        if (Model is null) return new StateResult(false, "No model to track");
+        _errorMessage = null;
+
+        if (Model is null)
+        {
+            _errorMessage = "Model is null";
+
+            return;
+        }
 
         try
         {
-            if (Model == PreviousState)
-            {
-                return new StateResult(true, "No Changes");
-            }
-
-            PreviousState = Model with { };
-
-            DateTime time = TimeProvider.GetUtcNow().DateTime;
-
-            T snapShot = Model with { LastUpdatedUtc = time };
-            UndoStack.Push(snapShot);
-            await SaveToIndexedDb(snapShot, cancellationToken);
-            return new StateResult(true, "Changes tracked");
+            Model = await StateManager.Update(Model, cancellationToken);
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Failed to track changes");
-
-            return new StateResult(false, ex.Message);
+            Logger.LogError(ex, "Failed to update model");
+            _errorMessage = "Failed to update model";
         }
     }
 
@@ -68,47 +66,30 @@ public abstract class StateComponentBase<T> : ComponentBase where T : StateRecor
     /// <returns>
     ///     A <see cref="StateResult" /> indicating success or failure
     /// </returns>
-    public virtual async ValueTask<StateResult> New(CancellationToken cancellationToken = default)
+    protected virtual async Task New(CancellationToken cancellationToken = default)
     {
         if (!Authenticated)
         {
-            return new StateResult(false, "User not authenticated");
+            _errorMessage = "User not authenticated";
+            return;
         }
-
-        T? backup = Model is null ? null : Model with { };
-
         try
         {
-            DateTime time = TimeProvider.GetUtcNow().DateTime;
-            var newModel = new T { Id = Guid.NewGuid(), LastUpdatedUtc = time, CreatedUtc = time };
-            Model = newModel;
-            UndoStack.Clear();
-            RedoStack.Clear();
-
-            await SaveToIndexedDb(newModel, cancellationToken);
-
-            if (backup is not null)
-            {
-                // delete the previous item from the IndexedDb cache
-                await IndexedDb.Delete<T>(backup.Id, cancellationToken);
-            }
-
-            return new StateResult(true, "New model created");
+            Model = await StateManager.New(cancellationToken);
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Failed to create new model");
-            Model = backup;
-
-            return new StateResult(false, ex.Message);
+            _errorMessage = "Failed to create new model";
         }
     }
 
-    public virtual async ValueTask Load(Guid? id = null, CancellationToken cancellationToken = default)
+    protected virtual async Task Load(Guid? id = null, CancellationToken cancellationToken = default)
     {
         if (!Authenticated)
         {
-            return new StateResult(false, "User not authenticated");
+            _errorMessage = "User not authenticated";
+            return;
         }
         
         if (!StateManager.IsInitialized)
@@ -138,99 +119,51 @@ public abstract class StateComponentBase<T> : ComponentBase where T : StateRecor
             
             if (id is null)
             {
-                return new StateResult(false, "No ID provided for loading the record");
+                _errorMessage = "No ID provided for loading the record";
+
+                return;
             }
         }
-        
-        T? backup = Model;
 
         try
         {
-            T? cachedRecord = await LoadFromIndexedDb(id.Value, cancellationToken);
-        
-            if (cachedRecord is not null)
-            {
-                Model = cachedRecord;
-                UndoStack.Clear();
-                RedoStack.Clear();
-                return new StateResult(true, "Loaded from IndexedDb cache");
-            }
-            
-            T record = await StateManager.Load(id.Value, cancellationToken);
-
-            UndoStack.Clear();
-            RedoStack.Clear();
-            Model = record;
-            await SaveToIndexedDb(Model, cancellationToken);
-
-            return new StateResult(true, "Loaded from server");
+            Model = await StateManager.Load(id.Value, cancellationToken);
         }
         catch (Exception ex)
         {
-            Model = backup;
-            return new StateResult(false, ex.Message);
+            Logger.LogError(ex, "Failed to load model with ID {Id}", id);
+            _errorMessage = $"Failed to load model with ID {id}";
+            Model = null;
         }
     }
     
-    public virtual async ValueTask<StateResult> Search(Dictionary<string, string> queryParams, 
+    protected virtual async Task Search(Dictionary<string, string> queryParams, 
         CancellationToken cancellationToken = default)
     {
         if (!Authenticated)
         {
-            return new StateResult(false, "User not authenticated");
+            _errorMessage = "User not authenticated";
+            return;
         }
 
         try
         {
-            T? cachedRecord = await LoadFromIndexedDb(Guid.Empty, cancellationToken);
-
-            if (cachedRecord is not null)
-            {
-                Model = cachedRecord;
-                UndoStack.Clear();
-                RedoStack.Clear();
-                return new StateResult(true, "Loaded from IndexedDb cache");
-            }
-
-            T record = await StateManager.Search(queryParams, cancellationToken);
-            Model = record;
-            UndoStack.Clear();
-            RedoStack.Clear();
-            await SaveToIndexedDb(Model, cancellationToken);
-
-            return new StateResult(true, "Loaded from server");
+            Model = await StateManager.Search(queryParams, cancellationToken);
         }
         catch (Exception ex)
         {
-            return new StateResult(false, ex.Message);
+            Logger.LogError(ex, "Failed to search for model with query parameters {QueryParams}", queryParams);
+            _errorMessage = $"Failed to search for model: {ex.Message}";
+            Model = null;
         }
-    }
-    
-    private Dictionary<string, string>? ParseQueryString(string? queryString)
-    {
-        if (string.IsNullOrWhiteSpace(queryString))
-        {
-            return null;
-        }
-        
-        NameValueCollection query = HttpUtility.ParseQueryString(queryString);
-        Dictionary<string, string> queryParams = new();
-        foreach (string? key in query.AllKeys)
-        {
-            if (key is not null && query[key] is not null)
-            {
-                queryParams[key] = query[key]!;
-            }
-        }
-        
-        return queryParams;
     }
 
-    public virtual async ValueTask<StateResult> Save(CancellationToken cancellationToken = default)
+    protected virtual async Task Save(CancellationToken cancellationToken = default)
     {
         if (!Authenticated)
         {
-            return new StateResult(false, "User not authenticated");
+            _errorMessage = "User not authenticated";
+            return;
         }
 
         if (Model is null)
@@ -241,20 +174,20 @@ public abstract class StateComponentBase<T> : ComponentBase where T : StateRecor
         try
         {
             await StateManager.Save(Model, cancellationToken);
-
-            return new StateResult(true, "Saved to server");
         }
         catch (Exception ex)
         {
-            return new StateResult(false, ex.Message);
+            Logger.LogError(ex, "Failed to save model");
+            _errorMessage = $"Failed to save model: {ex.Message}";
         }
     }
 
-    public virtual async ValueTask<StateResult> Delete(CancellationToken cancellationToken = default)
+    protected virtual async Task Delete(CancellationToken cancellationToken = default)
     {
         if (!Authenticated)
         {
-            return new StateResult(false, "User not authenticated");
+            _errorMessage = "User not authenticated";
+            return;
         }
 
         if (Model is null)
@@ -265,16 +198,11 @@ public abstract class StateComponentBase<T> : ComponentBase where T : StateRecor
         try
         {
             await StateManager.Delete(Model.Id, cancellationToken);
-            UndoStack.Clear();
-            RedoStack.Clear();
-            await IndexedDb.Delete<T>(Model.Id, cancellationToken);
-            Model = null;
-
-            return new StateResult(true, "Deleted from server and IndexedDb");
         }
         catch (Exception ex)
         {
-            return new StateResult(false, ex.Message);
+            Logger.LogError(ex, "Failed to delete model with ID {Id}", Model.Id);
+            _errorMessage = $"Failed to delete model with ID {Model.Id}: {ex.Message}";
         }
     }
 
@@ -290,32 +218,15 @@ public abstract class StateComponentBase<T> : ComponentBase where T : StateRecor
     /// <exception cref="ArgumentNullException">
     ///     Thrown when the <see cref="Model" /> is null
     /// </exception>
-    public async ValueTask<StateResult> Undo(CancellationToken cancellationToken = default)
+    protected async Task Undo(CancellationToken cancellationToken = default)
     {
         if (!Authenticated)
         {
-            return new StateResult(false, "User not authenticated");
+            _errorMessage = "User not authenticated";
+            return;
         }
 
-        if (Model is null) throw new ArgumentNullException(nameof(Model));
-
-        T backup = Model with { };
-
-        try
-        {
-            RedoStack.Push(Model with { });
-            Model = UndoStack.Pop();
-            await SaveToIndexedDb(Model, cancellationToken);
-
-            return new StateResult(true, "Changes tracked");
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Failed to undo changes");
-            Model = backup;
-
-            return new StateResult(false, ex.Message);
-        }
+        Model = await StateManager.Undo(cancellationToken);
     }
 
     /// <summary>
@@ -327,32 +238,15 @@ public abstract class StateComponentBase<T> : ComponentBase where T : StateRecor
     /// <returns>
     ///     A <see cref="StateResult" /> indicating the success of the operation
     /// </returns>
-    public virtual async ValueTask<StateResult> Redo(CancellationToken cancellationToken = default)
+    public virtual async Task Redo(CancellationToken cancellationToken = default)
     {
         if (!Authenticated)
         {
-            return new StateResult(false, "User not authenticated");
+            _errorMessage = "User not authenticated";
+            return;
         }
 
-        if (Model is null) throw new ArgumentNullException(nameof(Model));
-
-        T backup = Model with { };
-
-        try
-        {
-            UndoStack.Push(Model with { });
-            Model = RedoStack.Pop();
-            await SaveToIndexedDb(Model, cancellationToken);
-
-            return new StateResult(true, "Changes tracked");
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Failed to redo changes");
-            Model = backup;
-
-            return new StateResult(false, ex.Message);
-        }
+        Model = await StateManager.Redo(cancellationToken);
     }
 
     protected override async Task OnInitializedAsync()
@@ -391,47 +285,48 @@ public abstract class StateComponentBase<T> : ComponentBase where T : StateRecor
         await base.OnAfterRenderAsync(firstRender);
         if (firstRender)
         {
-            await IndexedDb.Initialize();
             if (LoadOnInitialize && Model is null)
             {
                 await Load();
             }
         }
-        await Update();
-    }
 
-    private async Task SaveToIndexedDb(T record, CancellationToken cancellationToken)
-    {
-        await IndexedDb.Put(new CacheStorageRecord<T>(record, record.Id, UserId!, TimeProvider.GetUtcNow().DateTime), 
-            cancellationToken);
-    }
-    
-    private async Task<T?> LoadFromIndexedDb(Guid id, CancellationToken cancellationToken)
-    {
-        try
+        if (Model is not null)
         {
-            CacheStorageRecord<T>? cachedRecord = await IndexedDb.Get<CacheStorageRecord<T>>(id, cancellationToken);
-
-            if (cachedRecord is not null && cachedRecord.UserId == UserId
-                                         && cachedRecord.TimeStamp + CacheDuration < TimeProvider.GetUtcNow().DateTime)
+            try
             {
-                return cachedRecord.Item;
+                await StateManager.Track(Model);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Failed to track model with ID {Id}", Model.Id);
+                _errorMessage = $"Failed to track model with ID {Model.Id}: {ex.Message}";
             }
         }
-        catch (Exception ex)
+    }
+    
+    private Dictionary<string, string>? ParseQueryString(string? queryString)
+    {
+        if (string.IsNullOrWhiteSpace(queryString))
         {
-            Logger.LogError(ex, "Failed to load from IndexedDb");
+            return null;
         }
-
-        return null;
+        
+        NameValueCollection query = HttpUtility.ParseQueryString(queryString);
+        Dictionary<string, string> queryParams = new();
+        foreach (string? key in query.AllKeys)
+        {
+            if (key is not null && query[key] is not null)
+            {
+                queryParams[key] = query[key]!;
+            }
+        }
+        
+        return queryParams;
     }
 
-    protected readonly string TypeName = typeof(T).Name;
-
-    protected readonly Stack<T> RedoStack = [];
-    protected readonly Stack<T> UndoStack = [];
     protected bool Authenticated;
-    protected T? PreviousState;
     protected string? UserId;
     protected string? QueryString;
+    protected string? _errorMessage;
 }
