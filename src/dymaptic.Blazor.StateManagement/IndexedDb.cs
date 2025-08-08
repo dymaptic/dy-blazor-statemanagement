@@ -99,13 +99,7 @@ public class IndexedDb(IJSRuntime jsRuntime, string databaseName, int version, I
             throw new InvalidOperationException("IndexedDb must be initialized before use. Call Initialize() first.");
     }
 
-    private string GetStoreName<T>() => GetStoreName(typeof(T));
-    
-    private static string GetStoreName(Type type)
-    {
-        // Use a more robust naming strategy that handles generic types and nested classes
-        return type.FullName?.Replace('+', '_').Replace('`', '_') ?? type.Name;
-    }
+    private string GetStoreName<T>() => typeof(T).GetStoreName();
 
     private async Task<T> ExecuteWithErrorHandling<T>(Func<Task<T>> operation)
     {
@@ -140,8 +134,9 @@ internal class DbObjectStoreConverter : JsonConverter<DbObjectStore>
 
     public override void Write(Utf8JsonWriter writer, DbObjectStore value, JsonSerializerOptions options)
     {
+        
         writer.WriteStartObject();
-        writer.WriteString("name", value.ObjectType.Name);
+        writer.WriteString("name", value.ObjectType.GetStoreName());
         writer.WriteString("keyPath", value.KeyPath?.ToLowerFirstChar());
         writer.WritePropertyName("indexes");
         JsonSerializer.Serialize(writer, value.Indexes, options);
@@ -162,5 +157,19 @@ internal static class StringExtensions
                 span[i] = txt[i];
             }
         });
+    }
+    
+    public static string GetStoreName(this Type type)
+    {
+        string storeName = type.Name;
+
+        if (type.IsGenericType)
+        {
+            // get the generic type definition name
+            string argumentName = type.GetGenericArguments()[0].Name;
+            storeName = storeName.Replace("`1", $"<{argumentName}>");
+        }
+        
+        return storeName;
     }
 }

@@ -12,12 +12,13 @@ public class ServerStateManager<T>(StateManagementDbContext dbContext,
     TimeProvider timeProvider, ILogger<ServerStateManager<T>> logger)
     : IStateManager<T> where T : StateRecord
 {
-    public void Initialize(string userId)
+    public Task Initialize(string userId)
     {
         // Initialization logic can be added here if needed.
         // For example, setting up user-specific configurations or logging.
         IsInitialized = true;
         _userId = userId;
+        return Task.CompletedTask;
     }
 
     public async ValueTask<T> New(CancellationToken cancellationToken = default)
@@ -61,6 +62,7 @@ public class ServerStateManager<T>(StateManagementDbContext dbContext,
         _previousState = model with { };
 
         DateTime time = timeProvider.GetUtcNow().DateTime;
+        logger.LogInformation("Tracking changes at {Time} for model {Id}", time, model.Id);
 
         T snapShot = model with { LastUpdatedUtc = time };
         _undoStack.Push(snapShot);
@@ -249,12 +251,14 @@ public class ServerStateManager<T>(StateManagementDbContext dbContext,
     
     public async ValueTask<T?> GetMostRecent(string userId, CancellationToken cancellationToken = default)
     {
+        await Initialize(userId);
         // TODO: Implement logic to retrieve the most recent record for the specified user.
         return null;
     }
     
     private async Task SaveToCache(T record, CancellationToken cancellationToken)
     {
+        logger.LogInformation("Saving to cache of type {Type}", record.GetType());
         await hybridCache.SetAsync(record.Id.ToString(), 
             new CacheStorageRecord<T>(record, record.Id, _userId!, DateTime.UtcNow), 
             _cacheOptions, null, cancellationToken);
@@ -263,32 +267,24 @@ public class ServerStateManager<T>(StateManagementDbContext dbContext,
     private async Task<T> LoadFromCache(Guid id, Func<CancellationToken, Task<T>> callback, 
         CancellationToken cancellationToken)
     {
-        try
-        {
-            // The GetOrCreate pattern doesn't really fit with our needs here
-            // so we always return null if the record is not found.
-            CacheStorageRecord<T>? cachedRecord = await hybridCache
-                .GetOrCreateAsync<CacheStorageRecord<T>?>(id.ToString(), 
-                    async token =>
-                    {
-                        T model = await callback(token);
-                        return new CacheStorageRecord<T>(model, model.Id, _userId!, DateTime.UtcNow);
-                    },
-                    _cacheOptions, 
-                    null, 
-                    cancellationToken);
+        CacheStorageRecord<T> cachedRecord = await hybridCache
+            .GetOrCreateAsync<CacheStorageRecord<T>>(id.ToString(), 
+                async token =>
+                {
+                    T model = await callback(token);
+                    return new CacheStorageRecord<T>(model, model.Id, _userId!, DateTime.UtcNow);
+                },
+                _cacheOptions, 
+                null, 
+                cancellationToken);
 
-            if (cachedRecord is not null && cachedRecord.UserId == _userId)
-            {
-                return cachedRecord.Item;
-            }
-        }
-        catch (Exception ex)
+        if (cachedRecord.UserId == _userId)
         {
-            logger.LogError(ex, "Failed to load from IndexedDb");
+            logger.LogInformation("Loaded from cache of type {Type}", cachedRecord.Item.GetType());
+            return cachedRecord.Item;
         }
-
-        return null;
+        
+        throw new InvalidOperationException("Cached record does not belong to the current user.");
     }
     
     private async Task ResetLocalCacheAndStacks(CancellationToken cancellationToken)

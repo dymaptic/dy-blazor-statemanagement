@@ -98,7 +98,12 @@ try
 
     app.UseHttpsRedirection();
 
+#if ENABLE_COMPRESSION
     app.MapStaticAssets();
+#else
+    app.UseStaticFiles();
+#endif
+    
     app.UseAntiforgery();
 
     app.MapStateManagementEndpoints();

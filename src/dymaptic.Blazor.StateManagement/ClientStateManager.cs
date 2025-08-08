@@ -10,9 +10,10 @@ public class ClientStateManager<T>(HttpClient httpClient, IndexedDb indexedDb, T
     ILogger<ClientStateManager<T>> logger, IConfiguration configuration)
     : IStateManager<T> where T: StateRecord
 {
-    public void Initialize(string userId)
+    public async Task Initialize(string userId)
     {
         _userId = userId;
+        await indexedDb.Initialize();
         IsInitialized = true;
     }
 
@@ -187,6 +188,7 @@ public class ClientStateManager<T>(HttpClient httpClient, IndexedDb indexedDb, T
     
     public async ValueTask<T?> GetMostRecent(string userId, CancellationToken cancellationToken = default)
     {
+        await Initialize(userId);
         CacheStorageRecord<T>[]? cachedRecords =
             await indexedDb.GetAll<CacheStorageRecord<T>>(cancellationToken);
         // reload from cache
@@ -234,6 +236,7 @@ public class ClientStateManager<T>(HttpClient httpClient, IndexedDb indexedDb, T
     
     private async Task SaveToIndexedDb(T record, CancellationToken cancellationToken)
     {
+        logger.LogInformation("Saving record {record}", record);
         await indexedDb.Put(new CacheStorageRecord<T>(record, record.Id, _userId!, timeProvider.GetUtcNow().DateTime), 
             cancellationToken);
     }
@@ -247,6 +250,7 @@ public class ClientStateManager<T>(HttpClient httpClient, IndexedDb indexedDb, T
             if (cachedRecord is not null && cachedRecord.UserId == _userId
                                          && cachedRecord.TimeStamp + _cacheDuration < timeProvider.GetUtcNow().DateTime)
             {
+                logger.LogInformation("Loading from indexed DB");
                 return cachedRecord.Item;
             }
         }

@@ -5,6 +5,9 @@
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <base href="/"/>
+    @{
+#if ENABLE_COMPRESSION
+    }
     <link rel="stylesheet" href="@Assets["bootstrap/bootstrap.min.css"]" />
     <link rel="stylesheet" href="@Assets["app.css"]" />
     <link rel="stylesheet" href="@Assets["ShipmentTracker.styles.css"]" />
@@ -12,6 +15,21 @@
     <link rel="stylesheet" href="@Assets["_content/Radzen.Blazor/css/material-base.css"]" />
     <link href="@Assets["_content/dymaptic.GeoBlazor.Core"]" />
     <link href="@Assets["_content/dymaptic.GeoBlazor.Pro"]" />
+    @{
+#else
+    }
+    
+    <link rel="stylesheet" href="_content/bootstrap/bootstrap.min.css" />
+    <link rel="stylesheet" href="_content/app.css" />
+    <link rel="stylesheet" href="_content/ShipmentTracker.styles.css" />
+    <link rel="icon" type="image/png" href="_content/favicon.png" />
+    <link rel="stylesheet" href="_content/Radzen.Blazor/css/material-base.css" />
+    <link href="_content/dymaptic.GeoBlazor.Pro" />
+    <link href="_content/dymaptic.GeoBlazor.Core" />
+    @{
+#endif
+    }
+
     <HeadOutlet @rendermode="InteractiveServer" />
 </head>
 

@@ -181,6 +181,11 @@ public abstract class CollectionStateComponentBase<T> : ComponentBase where T : 
         }
         ErrorMessage = null;
         
+        if (!StateManager.IsInitialized)
+        {
+            await StateManager.Initialize(UserId!);
+        }
+        
         try
         {
             Dictionary<string, string>? queryParams = ParseQueryString(QueryString);

@@ -1,6 +1,6 @@
 @inherits StateComponentBase<PickupRequestModel>
 @page "/pickup"
-@rendermode InteractiveServer
+@rendermode InteractiveWebAssembly
 
 <PageTitle>Request Pickup</PageTitle>
 <h1>Request Package Pickup</h1>
@@ -130,20 +130,22 @@
 
 
 @code {
-    [Inject]
-    public required IndexedDb IndexedDb { get; set; }
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        await base.OnInitializedAsync();
+        await base.OnAfterRenderAsync(firstRender);
 
-        CacheStorageRecord<PickupRequestModel>[]? cachedRecords =
-            await IndexedDb.GetAll<CacheStorageRecord<PickupRequestModel>>();
         // reload from cache
-        Model = cachedRecords?
-            .OrderByDescending(r => r.TimeStamp)
-            .FirstOrDefault(r => r.UserId == UserId)?.Item 
-            ?? new PickupRequestModel();
+        if (Model is null)
+        {
+            Model = await StateManager.GetMostRecent(UserId!);
+
+            if (Model is null)
+            {
+                await New();
+            }
+            StateHasChanged();
+        }
     }
 
     private bool _isSubmitted;

@@ -75,6 +75,11 @@ public abstract class StateComponentBase<T> : ComponentBase where T : StateRecor
         }
         ErrorMessage = null;
         
+        if (!StateManager.IsInitialized)
+        {
+            await StateManager.Initialize(UserId!);
+        }
+        
         try
         {
             Model = await StateManager.New(cancellationToken);
@@ -97,7 +102,7 @@ public abstract class StateComponentBase<T> : ComponentBase where T : StateRecor
         
         if (!StateManager.IsInitialized)
         {
-            StateManager.Initialize(UserId!);
+            await StateManager.Initialize(UserId!);
         }
         
         // get ID from the URL if it exists
@@ -152,6 +157,11 @@ public abstract class StateComponentBase<T> : ComponentBase where T : StateRecor
         }
         ErrorMessage = null;
 
+        if (!StateManager.IsInitialized)
+        {
+            await StateManager.Initialize(UserId!);
+        }
+        
         try
         {
             Model = await StateManager.Search(queryParams, cancellationToken);

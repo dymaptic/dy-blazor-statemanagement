@@ -7,7 +7,7 @@ public interface IStateManager
 
 public interface IStateManager<T>: IStateManager where T : StateRecord
 {
-    void Initialize(string userId);
+    Task Initialize(string userId);
     
     ValueTask<T> New(CancellationToken cancellationToken = default);
     ValueTask<T> Load(Guid id, CancellationToken cancellationToken = default);

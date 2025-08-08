@@ -5,6 +5,8 @@
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
         <UserSecretsId>9f7da3b7-cad2-485c-808e-dfc54474e75c</UserSecretsId>
+        <CompressionEnabled Condition="$(Configuration) != 'RELEASE' OR $(EnableCompression) != 'true'">false</CompressionEnabled>
+        <DefineConstants Condition="$(EnableCompression) == 'true'">$(DefineConstants);ENABLE_COMPRESSION</DefineConstants>
     </PropertyGroup>
 
     <ItemGroup>
