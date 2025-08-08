@@ -102,7 +102,7 @@
                     <div class="col-md-6">
                         <RadzenLabel Text="Preferred Pickup Date *" />
                         <RadzenDatePicker @bind-Value="Model!.RequestedPickupDate" 
-                            Min="DateTime.Today.AddDays(1)" DateFormat="MM/dd/yyyy" Class="w-100" />
+                                          Min="DateTime.Today.AddDays(1)" DateFormat="MM/dd/yyyy" Class="w-100" />
                     </div>
                     <div class="col-md-6">
                         <RadzenLabel Text="Time Window *" />
@@ -113,19 +113,20 @@
                 <div class="mb-3">
                     <RadzenLabel Text="Special Instructions (Optional)" />
                     <RadzenTextArea @bind-Value="Model!.SpecialInstructions" Rows="3" Class="w-100" 
-                        Placeholder="Any special handling instructions or access information..." />
+                                    Placeholder="Any special handling instructions or access information..." />
                 </div>
                 
                 <div class="form-actions">
                     <RadzenButton ButtonType="ButtonType.Submit" Text="Submit Pickup Request" 
-                        Icon="local_shipping" ButtonStyle="ButtonStyle.Primary" />
+                                  Icon="local_shipping" ButtonStyle="ButtonStyle.Primary" />
                     <RadzenButton Text="Cancel" Icon="cancel" ButtonStyle="ButtonStyle.Light" 
-                        Click="@(() => NavigationManager.NavigateTo("/"))" Class="ms-2" />
+                                  Click="@(() => NavigationManager.NavigateTo("/"))" Class="ms-2" />
                 </div>
             </div>
         </EditForm>
     }
 </div>
+<div class="alert-warning">@ErrorMessage</div>
 
 
 @code {

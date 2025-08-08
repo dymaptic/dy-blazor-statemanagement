@@ -12,8 +12,6 @@ namespace dymaptic.Blazor.StateManagement;
 public abstract class CollectionStateComponentBase<T> : ComponentBase where T : StateRecord, new()
 {
     [Inject]
-    public required IndexedDb IndexedDb { get; set; }
-    [Inject]
     public required TimeProvider TimeProvider { get; set; }
     [Inject]
     public required AuthenticationStateProvider AuthenticationStateProvider { get; set; }
@@ -29,45 +27,34 @@ public abstract class CollectionStateComponentBase<T> : ComponentBase where T : 
     public List<T>? Model { get; protected set; }
     
     protected virtual bool LoadOnInitialize { get; set; }
-    protected virtual TimeSpan CacheDuration { get; set; } = TimeSpan.FromMinutes(5);
 
-    public virtual async ValueTask<StateResult> Update(CancellationToken cancellationToken = default)
+    public virtual async Task Update(T item, CancellationToken cancellationToken = default)
     {
         if (!Authenticated)
         {
-            return new StateResult(false, "User not authenticated");
+            ErrorMessage = "User not authenticated";
+            return;
         }
-
-        if (Model is null) return new StateResult(false, "No model to track");
+        ErrorMessage = null;
+        Model ??= [];
 
         try
         {
-            if (Model == PreviousState)
+            item = await StateManager.Update(item, cancellationToken);
+            int index = Model.FindIndex(m => m.Id == item.Id);
+            if (index >= 0)
             {
-                return new StateResult(true, "No Changes");
+                Model[index] = item;
             }
-
-            PreviousState = Model.Select(m => m with { }).ToList();
-
-            DateTime time = TimeProvider.GetUtcNow().DateTime;
-            List<T> collectionSnapshot = [];
-
-            foreach (T item in Model)
+            else
             {
-                T snapShot = item with { LastUpdatedUtc = time };
-                collectionSnapshot.Add(snapShot);
+                Model.Add(item);
             }
-            
-            UndoStack.Push(collectionSnapshot);
-            await SaveToIndexedDb(collectionSnapshot, cancellationToken);
-
-            return new StateResult(true, "Changes tracked");
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Failed to track changes");
-
-            return new StateResult(false, ex.Message);
+            Logger.LogError(ex, "Failed to update model");
+            ErrorMessage = "Failed to update model";
         }
     }
 
@@ -80,167 +67,159 @@ public abstract class CollectionStateComponentBase<T> : ComponentBase where T : 
     /// <returns>
     ///     A <see cref="StateResult" /> indicating success or failure
     /// </returns>
-    public virtual async ValueTask<StateResult> Add(CancellationToken cancellationToken = default)
+    public virtual async Task Add(CancellationToken cancellationToken = default)
     {
         if (!Authenticated)
         {
-            return new StateResult(false, "User not authenticated");
+            ErrorMessage = "User not authenticated";
+            return;
         }
+        ErrorMessage = null;
         
         Model ??= [];
 
-        List<T> backup = Model.Select(m => m with { }).ToList();
-        UndoStack.Push(backup);
-
         try
         {
-            DateTime time = TimeProvider.GetUtcNow().DateTime;
-            var newItem = new T { Id = Guid.NewGuid(), LastUpdatedUtc = time, CreatedUtc = time };
-            Model ??= [];
-            Model.Add(newItem);
-
-            await SaveToIndexedDb(Model, cancellationToken);
-
-            return new StateResult(true, "New item added");
+            T item = await StateManager.New(cancellationToken);
+            Model.Add(item);
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Failed to add new item");
-            Model = UndoStack.Pop();
-
-            return new StateResult(false, ex.Message);
+            ErrorMessage = $"Failed to add new item: {ex.Message}";
         }
     }
 
-    public virtual async ValueTask<StateResult> Remove(T item, CancellationToken cancellationToken = default)
+    public virtual async Task Delete(T item, CancellationToken cancellationToken = default)
     {
         if (!Authenticated)
         {
-            return new StateResult(false, "User not authenticated");
+            ErrorMessage = "User not authenticated";
+            return;
         }
 
         if (Model is null || !Model.Contains(item))
         {
-            return new StateResult(false, "Item not found in model");
+            ErrorMessage = "Item not found in model";
+            return;
         }
-
-        List<T> backup = Model.Select(m => m with { }).ToList();
-        UndoStack.Push(backup);
+        ErrorMessage = null;
 
         try
         {
             Model.Remove(item);
-            await SaveToIndexedDb(Model, cancellationToken);
-
-            return new StateResult(true, "Item removed");
+            await StateManager.Delete(item.Id, cancellationToken);
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Failed to remove item");
-            Model = UndoStack.Pop();
-
-            return new StateResult(false, ex.Message);
+            ErrorMessage = $"Failed to remove item: {ex.Message}";
+            Model.Add(item); // Revert the removal in case of failure
         }
     }
     
-    public virtual async ValueTask<StateResult> Clear(CancellationToken cancellationToken = default)
+    /// <summary>
+    ///     Clear does not delete items from the database, but clears the local model.
+    /// </summary>
+    protected virtual void Clear(CancellationToken cancellationToken = default)
     {
         if (!Authenticated)
         {
-            return new StateResult(false, "User not authenticated");
+            ErrorMessage = "User not authenticated";
+            return;
         }
 
         if (Model is null || !Model.Any())
         {
-            return new StateResult(false, "No items to clear");
+            ErrorMessage = "No items to clear";
+            return;
         }
-
-        List<T> backup = Model.Select(m => m with { }).ToList();
-        UndoStack.Push(backup);
+        ErrorMessage = null;
 
         try
         {
             Model.Clear();
-            await SaveToIndexedDb(Model, cancellationToken);
-
-            return new StateResult(true, "All items cleared");
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Failed to clear items");
-            Model = UndoStack.Pop();
-
-            return new StateResult(false, ex.Message);
         }
     }
     
-    public virtual async ValueTask<StateResult> Save(CancellationToken cancellationToken = default)
+    public virtual async Task Save(CancellationToken cancellationToken = default)
     {
         if (!Authenticated)
         {
-            return new StateResult(false, "User not authenticated");
+            ErrorMessage = "User not authenticated";
+            return;
         }
     
         if (Model is null)
         {
             throw new ArgumentNullException(nameof(Model));
         }
+        ErrorMessage = null;
     
         try
         {
             Model = await StateManager.SaveAll(Model, cancellationToken);
-            UndoStack.Clear();
-            RedoStack.Clear();
-            await SaveToIndexedDb(Model, cancellationToken);
-    
-            return new StateResult(true, "Saved to server");
         }
         catch (Exception ex)
         {
-            return new StateResult(false, ex.Message);
+            Logger.LogError(ex, "Failed to save model");
+            ErrorMessage = $"Failed to save model: {ex.Message}";
         }
     }
     
-    /// <summary>
-    ///     Undoes the last change made to the record
-    /// </summary>
-    /// <param name="cancellationToken">
-    ///     Optional cancellation token
-    /// </param>
-    /// <returns>
-    ///     A <see cref="StateResult" /> indicating success or failure
-    /// </returns>
-    /// <exception cref="ArgumentNullException">
-    ///     Thrown when the <see cref="Model" /> is null
-    /// </exception>
-    public async ValueTask<StateResult> Undo(CancellationToken cancellationToken = default)
+
+    protected virtual async Task Load(CancellationToken cancellationToken = default)
     {
         if (!Authenticated)
         {
-            return new StateResult(false, "User not authenticated");
+            ErrorMessage = "User not authenticated";
+            return;
         }
-    
-        if (Model is null) throw new ArgumentNullException(nameof(Model));
-    
-        List<T> backup = Model.Select(m => m with { }).ToList();
-    
+        ErrorMessage = null;
+        
         try
         {
-            RedoStack.Push(backup);
-            Model = UndoStack.Pop();
-            await SaveToIndexedDb(Model, cancellationToken);
-            
-            return new StateResult(true, "Changes tracked");
+            Dictionary<string, string>? queryParams = ParseQueryString(QueryString);
+            Model = await StateManager.LoadAll(queryParams, cancellationToken);
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Failed to undo changes");
-            Model = backup;
-    
-            return new StateResult(false, ex.Message);
+            Logger.LogError(ex, "Failed to load model with query parameters {QueryParams}", QueryString);
+            ErrorMessage = $"Failed to load model: {ex.Message}";
+            Model = null;
         }
     }
     
+    protected async Task Undo(CancellationToken cancellationToken = default)
+    {
+        if (!Authenticated)
+        {
+            ErrorMessage = "User not authenticated";
+            return;
+        }
+        ErrorMessage = null;
+
+        T? item = await StateManager.Undo(cancellationToken);
+        if (item is null)
+        {
+            ErrorMessage = "No changes to undo";
+
+            return;
+        }
+        
+        T? oldItem = Model?.FirstOrDefault(m => m.Id == item.Id);
+        if (oldItem is not null)
+        {
+            int index = Model!.IndexOf(oldItem);
+            Model!.Remove(oldItem);
+            Model.Insert(index, item);
+        }
+    }
+
     /// <summary>
     ///     Reapplies the most recent change that was undone
     /// </summary>
@@ -250,41 +229,39 @@ public abstract class CollectionStateComponentBase<T> : ComponentBase where T : 
     /// <returns>
     ///     A <see cref="StateResult" /> indicating the success of the operation
     /// </returns>
-    public virtual async ValueTask<StateResult> Redo(CancellationToken cancellationToken = default)
+    public virtual async Task Redo(CancellationToken cancellationToken = default)
     {
         if (!Authenticated)
         {
-            return new StateResult(false, "User not authenticated");
+            ErrorMessage = "User not authenticated";
+            return;
         }
-    
-        if (Model is null) throw new ArgumentNullException(nameof(Model));
-    
-        List<T> backup = Model.Select(m => m with { }).ToList();
-    
-        try
+        ErrorMessage = null;
+
+        T? item = await StateManager.Redo(cancellationToken);
+        if (item is null)
         {
-            UndoStack.Push(backup);
-            Model = RedoStack.Pop();
-            await SaveToIndexedDb(Model, cancellationToken);
-    
-            return new StateResult(true, "Changes tracked");
+            ErrorMessage = "No changes to redo";
+
+            return;
         }
-        catch (Exception ex)
+
+        T? oldItem = Model?.FirstOrDefault(m => m.Id == item.Id);
+        if (oldItem is not null)
         {
-            Logger.LogError(ex, "Failed to redo changes");
-            Model = backup;
-    
-            return new StateResult(false, ex.Message);
+            int index = Model!.IndexOf(oldItem);
+            Model!.Remove(oldItem);
+            Model.Insert(index, item);
         }
     }
-    
+
     protected override async Task OnInitializedAsync()
     {
         UserId ??= (await AuthenticationStateProvider.GetAuthenticationStateAsync())
             .User.FindFirst(ClaimTypes.NameIdentifier)
             ?.Value;
         Authenticated = UserId is not null;
-    
+
         if (!Authenticated)
         {
             return;
@@ -293,7 +270,7 @@ public abstract class CollectionStateComponentBase<T> : ComponentBase where T : 
         Uri uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
         QueryString = uri.Query;
     }
-
+    
     protected override async Task OnParametersSetAsync()
     {
         await base.OnParametersSetAsync();
@@ -303,7 +280,7 @@ public abstract class CollectionStateComponentBase<T> : ComponentBase where T : 
         if (previousQueryString is not null 
             && QueryString != previousQueryString 
             && LoadOnInitialize
-            && IndexedDb.IsInitialized)
+            && !StateManager.IsInitialized)
         {
             await Load();
         }
@@ -314,48 +291,28 @@ public abstract class CollectionStateComponentBase<T> : ComponentBase where T : 
         await base.OnAfterRenderAsync(firstRender);
         if (firstRender)
         {
-            await IndexedDb.Initialize();
-            if (Model is null && LoadOnInitialize)
+            if (LoadOnInitialize && Model is null)
             {
                 await Load();
             }
         }
-    }
 
-    protected virtual async Task<StateResult> Load(CancellationToken cancellationToken = default)
-    {
-        if (!Authenticated)
+        if (Model is not null)
         {
-            return new StateResult(false, "User not authenticated");
-        }
-        
-        List<T>? backup = Model?.Select(m => m with { }).ToList();
-        
-        try
-        {
-            List<T>? cachedItems = await LoadFromIndexedDb(QueryString, cancellationToken);
-            
-            if (cachedItems is not null)
+            foreach (T item in Model)
             {
-                Model = cachedItems;
-                UndoStack.Clear();
-                RedoStack.Clear();
-                return new StateResult(true, "Loaded from cache");
+                try
+                {
+                    await StateManager.Track(item);
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogError(ex, "Failed to track item with ID {Id}", item.Id);
+                    ErrorMessage = $"Failed to track item with ID {item.Id}";
+
+                    break;
+                }
             }
-            
-            Dictionary<string, string>? queryParams = ParseQueryString(QueryString);
-            
-            Model = await StateManager.LoadAll(queryParams, cancellationToken);
-        
-            UndoStack.Clear();
-            RedoStack.Clear();
-            await SaveToIndexedDb(Model, cancellationToken);
-        
-            return new StateResult(true, "Loaded from server");
-        }
-        catch (Exception ex)
-        {
-            return new StateResult(false, ex.Message);
         }
     }
 
@@ -366,52 +323,21 @@ public abstract class CollectionStateComponentBase<T> : ComponentBase where T : 
             return QueryParams;
         }
         NameValueCollection query = HttpUtility.ParseQueryString(queryString);
-        QueryParams = new Dictionary<string, string>();
+        Dictionary<string, string> queryParams = new();
         foreach (string? key in query.AllKeys)
         {
-            if (key is not null && query[key] is not null)
+            if (key is not null && !string.IsNullOrWhiteSpace(key))
             {
-                QueryParams[key] = query[key]!;
+                queryParams[key] = query[key]!;
             }
         }
         
-        return QueryParams;
-    }
-    
-    private async Task SaveToIndexedDb(List<T> record, CancellationToken cancellationToken)
-    {
-        await IndexedDb.Put(new CacheStorageCollectionRecord<T>(record, $"{UserId}-{QueryString}", 
-            QueryString ?? string.Empty, UserId!, TimeProvider.GetUtcNow().DateTime), cancellationToken);
-    }
-    
-    private async Task<List<T>?> LoadFromIndexedDb(string? queryString, CancellationToken cancellationToken)
-    {
-        try
-        {
-            CacheStorageCollectionRecord<T>? cachedRecord = 
-                await IndexedDb.Get<CacheStorageCollectionRecord<T>>($"{UserId}-{queryString}", cancellationToken);
-
-            if (cachedRecord is not null && cachedRecord.UserId == UserId
-                                         && cachedRecord.TimeStamp + CacheDuration < TimeProvider.GetUtcNow().DateTime)
-            {
-                return cachedRecord.Items;
-            }
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Failed to load from IndexedDb");
-        }
-
-        return null;
+        return queryParams;
     }
 
-    protected readonly string TypeName = typeof(T).Name;
-
-    protected readonly Stack<List<T>> RedoStack = [];
-    protected readonly Stack<List<T>> UndoStack = [];
     protected bool Authenticated;
-    protected List<T>? PreviousState;
     protected string? UserId;
     protected string? QueryString;
     protected Dictionary<string, string>? QueryParams;
+    protected string? ErrorMessage;
 }

@@ -7,8 +7,11 @@ namespace dymaptic.Blazor.StateManagement.Server;
 
 public static class StateManagementApi
 {
-    public static WebApplication MapStateManagementEndpoints(this WebApplication app)
+    public static WebApplication MapStateManagementEndpoints(this WebApplication app
+    )
     {
+        ILogger logger = app.Logger;
+        logger.LogInformation("Mapping state management endpoints...");
         using IServiceScope scope = app.Services.CreateScope();
         // find all types that implement IStateManager<T>
         IEnumerable<IStateManager> stateManagerTypes = scope.ServiceProvider.GetServices<IStateManager>();
@@ -24,6 +27,7 @@ public static class StateManagementApi
         foreach (IStateManager stateManager in stateManagerTypes)
         {
             Type modelType = stateManager.ModelType;
+            logger.LogInformation("Mapping endpoints for model type: {ModelType}", modelType.Name);
             RouteGroupBuilder stateGroup = app.MapGroup($"api/state/{modelType.Name.ToLowerInvariant()}")
                 .RequireAuthorization();
             MethodInfo restGet = restGetMethod.MakeGenericMethod(modelType);
@@ -50,6 +54,7 @@ public static class StateManagementApi
                     restSearch.Invoke(null, [query, sp, ct]));
         }
         
+        logger.LogInformation("State management endpoints mapped successfully.");
         return app;
     }
     

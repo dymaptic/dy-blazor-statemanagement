@@ -75,6 +75,11 @@ public class ServerStateManager<T>(StateManagementDbContext dbContext,
         PropertyInfo[] properties = modelType.GetProperties();
         foreach (KeyValuePair<string, string> param in queryParams)
         {
+            if (string.IsNullOrWhiteSpace(param.Value))
+            {
+                continue;
+            }
+            
             PropertyInfo? property = properties
                 .FirstOrDefault(p => p.Name.Equals(param.Key, StringComparison.OrdinalIgnoreCase));
 
@@ -165,6 +170,11 @@ public class ServerStateManager<T>(StateManagementDbContext dbContext,
             PropertyInfo[] properties = modelType.GetProperties();
             foreach (KeyValuePair<string, string> param in queryParams)
             {
+                if (string.IsNullOrWhiteSpace(param.Value))
+                {
+                    continue;
+                }
+                
                 PropertyInfo? property = properties
                     .FirstOrDefault(p => p.Name.Equals(param.Key, StringComparison.OrdinalIgnoreCase));
 

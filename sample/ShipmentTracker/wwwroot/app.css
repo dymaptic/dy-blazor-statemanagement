@@ -131,6 +131,10 @@ h1:focus {
     margin: 4rem;
 }
 
+body {
+    --rz-text-button-color: white;
+}
+
 .map-container {
     flex: 0 1 1;
 }

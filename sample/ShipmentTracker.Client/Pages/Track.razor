@@ -124,6 +124,7 @@ else
         </div>
     </div>
 }
+<div class="alert-warning">@ErrorMessage</div>
 
 @code {
     [Parameter] 
@@ -131,15 +132,11 @@ else
 
     private List<TrackingEvent> _trackingEvents = [];
     private string _deliveryInstructions = string.Empty;
-    protected override bool LoadOnInitialize { get; set; } = false;
+    protected override bool LoadOnInitialize { get; set; } = true;
 
     protected override async Task OnInitializedAsync()
     {
         await base.OnInitializedAsync();
-        await Search(new Dictionary<string, string>()
-        {
-            { "TrackingNumber", TrackingNumber }
-        });
         
         if (Model != null)
         {

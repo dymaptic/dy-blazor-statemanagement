@@ -30,8 +30,8 @@
             <div class="col-md-3">
                 <RadzenLabel Text="Status" />
                 <RadzenDropDown @bind-Value="_selectedStatus" Data="@_statusOptions" 
-                    TextProperty="Text" ValueProperty="Value" 
-                    AllowClear="true" Placeholder="All statuses" Class="w-100" />
+                                TextProperty="Text" ValueProperty="Value" 
+                                AllowClear="true" Placeholder="All statuses" Class="w-100" />
             </div>
             <div class="col-md-3 d-flex align-items-end">
                 <RadzenButton Text="Search" Icon="search" ButtonStyle="ButtonStyle.Primary" Click="SearchShipments" />
@@ -63,6 +63,7 @@
         </RadzenDataGrid>
     }
 </div>
+<div class="alert-warning">@ErrorMessage</div>
 
 @code {
 
@@ -92,20 +93,19 @@
             [nameof(Shipment.Status)] = _selectedStatus?.ToString() ?? string.Empty
         };
 
-        var result = await Load();
-        Console.WriteLine(result.Message);
+        await Load();
         Console.WriteLine($"Results loaded: {Model?.Count} shipments found.");
         StateHasChanged();
     }
 
-    private async Task ClearSearch()
+    private void ClearSearch()
     {
         _trackingNumber = null;
         _customerName = null;
         _startDate = null;
         _endDate = null;
         _selectedStatus = null;
-        await Clear();
+        Clear();
         Model = null;
     }
 

@@ -33,15 +33,15 @@ public abstract class StateComponentBase<T> : ComponentBase where T : StateRecor
     {
         if (!Authenticated)
         {
-            _errorMessage = "User not authenticated";
+            ErrorMessage = "User not authenticated";
             return;
         }
 
-        _errorMessage = null;
+        ErrorMessage = null;
 
         if (Model is null)
         {
-            _errorMessage = "Model is null";
+            ErrorMessage = "Model is null";
 
             return;
         }
@@ -53,7 +53,7 @@ public abstract class StateComponentBase<T> : ComponentBase where T : StateRecor
         catch (Exception ex)
         {
             Logger.LogError(ex, "Failed to update model");
-            _errorMessage = "Failed to update model";
+            ErrorMessage = "Failed to update model";
         }
     }
 
@@ -70,9 +70,11 @@ public abstract class StateComponentBase<T> : ComponentBase where T : StateRecor
     {
         if (!Authenticated)
         {
-            _errorMessage = "User not authenticated";
+            ErrorMessage = "User not authenticated";
             return;
         }
+        ErrorMessage = null;
+        
         try
         {
             Model = await StateManager.New(cancellationToken);
@@ -80,7 +82,7 @@ public abstract class StateComponentBase<T> : ComponentBase where T : StateRecor
         catch (Exception ex)
         {
             Logger.LogError(ex, "Failed to create new model");
-            _errorMessage = "Failed to create new model";
+            ErrorMessage = "Failed to create new model";
         }
     }
 
@@ -88,9 +90,10 @@ public abstract class StateComponentBase<T> : ComponentBase where T : StateRecor
     {
         if (!Authenticated)
         {
-            _errorMessage = "User not authenticated";
+            ErrorMessage = "User not authenticated";
             return;
         }
+        ErrorMessage = null;
         
         if (!StateManager.IsInitialized)
         {
@@ -119,11 +122,13 @@ public abstract class StateComponentBase<T> : ComponentBase where T : StateRecor
             
             if (id is null)
             {
-                _errorMessage = "No ID provided for loading the record";
+                ErrorMessage = "No ID provided for loading the record";
 
                 return;
             }
         }
+        
+        ErrorMessage = null;
 
         try
         {
@@ -132,7 +137,7 @@ public abstract class StateComponentBase<T> : ComponentBase where T : StateRecor
         catch (Exception ex)
         {
             Logger.LogError(ex, "Failed to load model with ID {Id}", id);
-            _errorMessage = $"Failed to load model with ID {id}";
+            ErrorMessage = $"Failed to load model with ID {id}";
             Model = null;
         }
     }
@@ -142,9 +147,10 @@ public abstract class StateComponentBase<T> : ComponentBase where T : StateRecor
     {
         if (!Authenticated)
         {
-            _errorMessage = "User not authenticated";
+            ErrorMessage = "User not authenticated";
             return;
         }
+        ErrorMessage = null;
 
         try
         {
@@ -153,7 +159,7 @@ public abstract class StateComponentBase<T> : ComponentBase where T : StateRecor
         catch (Exception ex)
         {
             Logger.LogError(ex, "Failed to search for model with query parameters {QueryParams}", queryParams);
-            _errorMessage = $"Failed to search for model: {ex.Message}";
+            ErrorMessage = $"Failed to search for model: {ex.Message}";
             Model = null;
         }
     }
@@ -162,7 +168,7 @@ public abstract class StateComponentBase<T> : ComponentBase where T : StateRecor
     {
         if (!Authenticated)
         {
-            _errorMessage = "User not authenticated";
+            ErrorMessage = "User not authenticated";
             return;
         }
 
@@ -170,6 +176,7 @@ public abstract class StateComponentBase<T> : ComponentBase where T : StateRecor
         {
             throw new ArgumentNullException(nameof(Model));
         }
+        ErrorMessage = null;
 
         try
         {
@@ -178,7 +185,7 @@ public abstract class StateComponentBase<T> : ComponentBase where T : StateRecor
         catch (Exception ex)
         {
             Logger.LogError(ex, "Failed to save model");
-            _errorMessage = $"Failed to save model: {ex.Message}";
+            ErrorMessage = $"Failed to save model: {ex.Message}";
         }
     }
 
@@ -186,7 +193,7 @@ public abstract class StateComponentBase<T> : ComponentBase where T : StateRecor
     {
         if (!Authenticated)
         {
-            _errorMessage = "User not authenticated";
+            ErrorMessage = "User not authenticated";
             return;
         }
 
@@ -194,6 +201,7 @@ public abstract class StateComponentBase<T> : ComponentBase where T : StateRecor
         {
             throw new ArgumentNullException(nameof(Model));
         }
+        ErrorMessage = null;
 
         try
         {
@@ -202,7 +210,7 @@ public abstract class StateComponentBase<T> : ComponentBase where T : StateRecor
         catch (Exception ex)
         {
             Logger.LogError(ex, "Failed to delete model with ID {Id}", Model.Id);
-            _errorMessage = $"Failed to delete model with ID {Model.Id}: {ex.Message}";
+            ErrorMessage = $"Failed to delete model with ID {Model.Id}: {ex.Message}";
         }
     }
 
@@ -222,9 +230,10 @@ public abstract class StateComponentBase<T> : ComponentBase where T : StateRecor
     {
         if (!Authenticated)
         {
-            _errorMessage = "User not authenticated";
+            ErrorMessage = "User not authenticated";
             return;
         }
+        ErrorMessage = null;
 
         Model = await StateManager.Undo(cancellationToken);
     }
@@ -242,9 +251,10 @@ public abstract class StateComponentBase<T> : ComponentBase where T : StateRecor
     {
         if (!Authenticated)
         {
-            _errorMessage = "User not authenticated";
+            ErrorMessage = "User not authenticated";
             return;
         }
+        ErrorMessage = null;
 
         Model = await StateManager.Redo(cancellationToken);
     }
@@ -300,7 +310,7 @@ public abstract class StateComponentBase<T> : ComponentBase where T : StateRecor
             catch (Exception ex)
             {
                 Logger.LogError(ex, "Failed to track model with ID {Id}", Model.Id);
-                _errorMessage = $"Failed to track model with ID {Model.Id}: {ex.Message}";
+                ErrorMessage = $"Failed to track model with ID {Model.Id}: {ex.Message}";
             }
         }
     }
@@ -316,7 +326,7 @@ public abstract class StateComponentBase<T> : ComponentBase where T : StateRecor
         Dictionary<string, string> queryParams = new();
         foreach (string? key in query.AllKeys)
         {
-            if (key is not null && query[key] is not null)
+            if (key is not null && !string.IsNullOrWhiteSpace(key))
             {
                 queryParams[key] = query[key]!;
             }
@@ -328,5 +338,5 @@ public abstract class StateComponentBase<T> : ComponentBase where T : StateRecor
     protected bool Authenticated;
     protected string? UserId;
     protected string? QueryString;
-    protected string? _errorMessage;
+    protected string? ErrorMessage;
 }

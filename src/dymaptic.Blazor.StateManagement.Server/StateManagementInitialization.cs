@@ -1,6 +1,8 @@
 using System.Reflection;
 using dymaptic.Blazor.StateManagement.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using Serilog;
+
 
 namespace dymaptic.Blazor.StateManagement.Server;
 
@@ -29,6 +31,7 @@ public static class StateManagementInitialization
     private static IServiceCollection AddServerStateManager<T>(IServiceCollection services)
         where T : StateRecord
     {
+        Log.Logger.Information($"Adding server state manager for type {typeof(T).Name}");
         services.AddScoped<IStateManager<T>, ServerStateManager<T>>();
         services.AddScoped<IStateManager>(sp => sp.GetRequiredService<IStateManager<T>>());
         return services;
