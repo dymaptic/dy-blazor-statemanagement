@@ -274,6 +274,7 @@ public abstract class CollectionStateComponentBase<T> : ComponentBase where T : 
         
         Uri uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
         QueryString = uri.Query;
+        await StateManager.Initialize(UserId!);
     }
     
     protected override async Task OnParametersSetAsync()
@@ -284,8 +285,7 @@ public abstract class CollectionStateComponentBase<T> : ComponentBase where T : 
         QueryString = uri.Query;
         if (previousQueryString is not null 
             && QueryString != previousQueryString 
-            && LoadOnInitialize
-            && !StateManager.IsInitialized)
+            && LoadOnInitialize)
         {
             await Load();
         }

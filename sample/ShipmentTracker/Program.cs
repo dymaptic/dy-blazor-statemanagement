@@ -26,7 +26,8 @@ try
     // Add services to the container.
     builder.Services.AddRazorComponents()
         .AddInteractiveServerComponents()
-        .AddInteractiveWebAssemblyComponents();
+        .AddInteractiveWebAssemblyComponents()
+        .AddAuthenticationStateSerialization();
     builder.Services.AddCascadingAuthenticationState();
     builder.Services.AddScoped<IdentityUserAccessor>();
     builder.Services.AddScoped<IdentityRedirectManager>();

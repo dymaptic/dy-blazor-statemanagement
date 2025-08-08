@@ -283,6 +283,7 @@ public abstract class StateComponentBase<T> : ComponentBase where T : StateRecor
         
         Uri uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
         QueryString = uri.Query;
+        await StateManager.Initialize(UserId!);
     }
     
     protected override async Task OnParametersSetAsync()
@@ -293,8 +294,7 @@ public abstract class StateComponentBase<T> : ComponentBase where T : StateRecor
         QueryString = uri.Query;
         if (previousQueryString is not null 
             && QueryString != previousQueryString 
-            && LoadOnInitialize
-            && !StateManager.IsInitialized)
+            && LoadOnInitialize)
         {
             await Load();
         }

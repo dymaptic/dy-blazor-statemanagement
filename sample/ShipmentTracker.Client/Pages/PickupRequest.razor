@@ -136,7 +136,7 @@
         await base.OnAfterRenderAsync(firstRender);
 
         // reload from cache
-        if (Model is null)
+        if (Model is null && StateManager.IsInitialized)
         {
             Model = await StateManager.GetMostRecent(UserId!);
 
