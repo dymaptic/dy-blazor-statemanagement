@@ -107,6 +107,8 @@ try
         .AddInteractiveServerRenderMode()
         .AddInteractiveWebAssemblyRenderMode()
         .AddAdditionalAssemblies(typeof(Inventory).Assembly);
+    
+    app.MapAdditionalIdentityEndpoints();
 
     app.Run();
 }

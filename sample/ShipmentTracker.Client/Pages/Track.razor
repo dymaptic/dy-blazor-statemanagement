@@ -132,15 +132,23 @@ else
 
     private List<TrackingEvent> _trackingEvents = [];
     private string _deliveryInstructions = string.Empty;
-    protected override bool LoadOnInitialize { get; set; } = true;
+    protected override bool LoadOnInitialize { get; set; } = false;
 
     protected override async Task OnInitializedAsync()
     {
         await base.OnInitializedAsync();
-        
-        if (Model != null)
+
+        if (Model is null)
         {
-            GenerateTrackingEvents();
+            Console.WriteLine("Searching for tracking number: " + TrackingNumber);
+            await Search(new Dictionary<string, string>
+            {
+                { "TrackingNumber", TrackingNumber }
+            });
+            if (Model is not null)
+            {
+                GenerateTrackingEvents();
+            }
         }
     }
 

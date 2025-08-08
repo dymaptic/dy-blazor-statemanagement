@@ -176,7 +176,7 @@
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         await base.OnAfterRenderAsync(firstRender);
-        if (Authenticated && Model is not null)
+        if (Authenticated && Model is not null && _startDates is null)
         {
             _startDates ??= Model!.ToDictionary(s => s.ItemId, s =>
                 _today.AddDays(-_random.Next(3, 20)));
