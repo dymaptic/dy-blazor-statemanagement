@@ -247,6 +247,12 @@ public class ServerStateManager<T>(StateManagementDbContext dbContext,
         return models;
     }
     
+    public async ValueTask<T?> GetMostRecent(string userId, CancellationToken cancellationToken = default)
+    {
+        // TODO: Implement logic to retrieve the most recent record for the specified user.
+        return null;
+    }
+    
     private async Task SaveToCache(T record, CancellationToken cancellationToken)
     {
         await hybridCache.SetAsync(record.Id.ToString(), 

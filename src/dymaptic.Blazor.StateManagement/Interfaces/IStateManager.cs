@@ -24,5 +24,6 @@ public interface IStateManager<T>: IStateManager where T : StateRecord
     ValueTask<T?> Redo(CancellationToken cancellationToken = default);
 
     ValueTask<List<T>> SaveAll(List<T> models, CancellationToken cancellationToken = default);
+    ValueTask<T?> GetMostRecent(string userId, CancellationToken cancellationToken = default);
     bool IsInitialized { get; }
 }

@@ -130,11 +130,20 @@
 
 
 @code {
+    [Inject]
+    public required IndexedDb IndexedDb { get; set; }
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-        base.OnInitialized();
-        Model = new PickupRequestModel();
+        await base.OnInitializedAsync();
+
+        CacheStorageRecord<PickupRequestModel>[]? cachedRecords =
+            await IndexedDb.GetAll<CacheStorageRecord<PickupRequestModel>>();
+        // reload from cache
+        Model = cachedRecords?
+            .OrderByDescending(r => r.TimeStamp)
+            .FirstOrDefault(r => r.UserId == UserId)?.Item 
+            ?? new PickupRequestModel();
     }
 
     private bool _isSubmitted;

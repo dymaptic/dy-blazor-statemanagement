@@ -2,6 +2,9 @@
 
 A comprehensive state management library for Blazor Web Apps that seamlessly works across Client and Server render modes, providing unified state management with caching, persistence, and undo/redo functionality.
 
+**Note**: This library is currently a **Work in Progress Proof of Concept**. 
+Use it as inspiration and reference, but be aware that it is not yet production-ready.
+
 ## Overview
 
 This library provides one solution for managing application state in Blazor applications that use both 

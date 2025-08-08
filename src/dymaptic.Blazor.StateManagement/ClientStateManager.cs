@@ -185,6 +185,16 @@ public class ClientStateManager<T>(HttpClient httpClient, IndexedDb indexedDb, T
         throw new InvalidOperationException("Failed to save state records");
     }
     
+    public async ValueTask<T?> GetMostRecent(string userId, CancellationToken cancellationToken = default)
+    {
+        CacheStorageRecord<T>[]? cachedRecords =
+            await indexedDb.GetAll<CacheStorageRecord<T>>(cancellationToken);
+        // reload from cache
+        return cachedRecords?
+                .OrderByDescending(r => r.TimeStamp)
+                .FirstOrDefault(r => r.UserId == userId)?.Item;
+    }
+    
     public async ValueTask<T?> Undo(CancellationToken cancellationToken = default)
     {
         if (_undoStack.Count == 0)
