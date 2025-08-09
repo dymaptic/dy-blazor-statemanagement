@@ -15,9 +15,9 @@ public interface IStateManager<T>: IStateManager where T : StateRecord
     ValueTask<T> Save(T model, CancellationToken cancellationToken = default);
     ValueTask<T> Update(T model, CancellationToken cancellationToken = default);
     ValueTask Delete(Guid id, CancellationToken cancellationToken = default);
-    ValueTask<List<T>> LoadAll(Dictionary<string, string>? queryParams,
+    ValueTask<List<T>> LoadAll(List<SearchRecord>? queryParams,
         CancellationToken cancellationToken = default);
-    ValueTask<T?> Search(Dictionary<string, string> queryParams, 
+    ValueTask<T?> Search(List<SearchRecord> queryParams, 
         CancellationToken cancellationToken = default);
 
     ValueTask<T?> Undo(CancellationToken cancellationToken = default);

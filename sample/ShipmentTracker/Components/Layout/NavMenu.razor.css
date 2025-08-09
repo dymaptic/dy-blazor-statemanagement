@@ -81,6 +81,18 @@
     background-image: url('/icons/settings.svg');
 }
 
+.login-icon {
+    background-image: url('/icons/login.svg');
+}
+
+.logout-icon {
+    background-image: url('/icons/logout.svg');
+}
+
+.register-icon {
+    background-image: url('/icons/register.svg');
+}
+
 .nav-item {
     font-size: 0.9rem;
     padding-bottom: 0.2rem;

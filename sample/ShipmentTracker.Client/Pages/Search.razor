@@ -84,16 +84,50 @@
 
     private async Task SearchShipments()
     {
-        QueryParams = new Dictionary<string, string>
-        {
-            [nameof(Shipment.TrackingNumber)] = _trackingNumber ?? string.Empty,
-            [nameof(Shipment.CustomerName)] = _customerName ?? string.Empty,
-            [nameof(Shipment.CreatedDate)] = _startDate.HasValue ? _startDate.ToString()! : string.Empty,
-            [nameof(Shipment.DeliveredDate)] = _endDate.HasValue ? _endDate.ToString()! : string.Empty,
-            [nameof(Shipment.Status)] = _selectedStatus?.ToString() ?? string.Empty
-        };
+        List<SearchRecord> queryParams = [];
 
-        await Load();
+        if (!string.IsNullOrWhiteSpace(_trackingNumber))
+        {
+            queryParams.Add(new SearchRecord(nameof(Shipment.TrackingNumber), _trackingNumber, SearchOption.Equals));
+        }
+        if (!string.IsNullOrWhiteSpace(_customerName))
+        {
+            queryParams.Add(new SearchRecord(nameof(Shipment.CustomerName), _customerName, SearchOption.Contains));
+        }
+
+        if (_startDate.HasValue)
+        {
+            if (_endDate.HasValue)
+            {
+                if (_startDate > _endDate)
+                {
+                    ErrorMessage = "Start date cannot be after end date.";
+
+                    return;
+                }
+
+                queryParams.Add(new SearchRecord(nameof(Shipment.CreatedDate), _startDate.Value.ToString("O"),
+                    SearchOption.Between, _endDate.Value.ToString("O")));
+            }
+            else
+            {
+                queryParams.Add(new SearchRecord(nameof(Shipment.CreatedDate), _startDate.Value.ToString("O"),
+                    SearchOption.GreaterThanOrEqual));
+            }
+        }
+        else if (_endDate.HasValue)
+        {
+            queryParams.Add(new SearchRecord(nameof(Shipment.CreatedDate), _endDate.Value.ToString("O"),
+                SearchOption.LessThanOrEqual));
+        }
+        
+        if (_selectedStatus.HasValue)
+        {
+            queryParams.Add(new  SearchRecord(nameof(Shipment.Status), _selectedStatus.Value.ToString(),
+                SearchOption.Equals)); 
+        }
+
+        await Load(queryParams);
         Console.WriteLine($"Results loaded: {Model?.Count} shipments found.");
         StateHasChanged();
     }

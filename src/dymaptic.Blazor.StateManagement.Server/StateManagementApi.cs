@@ -70,9 +70,9 @@ public static class StateManagementApi
         CancellationToken cancellationToken = default) where T : StateRecord
     {
         IStateManager<T> stateManager = serviceProvider.GetRequiredService<IStateManager<T>>();
-        Dictionary<string, string> query = ParseQueryString(queryString) 
+        List<SearchRecord> query = queryString.ParseQueryString() 
             ?? throw new ArgumentException("Query string cannot be null or empty.", nameof(queryString));
-        T result = await stateManager.Search(query, cancellationToken);
+        T? result = await stateManager.Search(query, cancellationToken);
         return Results.Ok(result);
     }
     
@@ -106,7 +106,7 @@ public static class StateManagementApi
         CancellationToken cancellationToken = default) where T : StateRecord
     {
         IStateManager<T> stateManager = serviceProvider.GetRequiredService<IStateManager<T>>();
-        Dictionary<string, string>? queryParams = ParseQueryString(query);
+        List<SearchRecord>? queryParams = query.ParseQueryString();
         List<T> results = await stateManager.LoadAll(queryParams, cancellationToken);
         return Results.Ok(results);
     }
@@ -118,18 +118,5 @@ public static class StateManagementApi
         IStateManager<T> stateManager = serviceProvider.GetRequiredService<IStateManager<T>>();
         List<T> results = await stateManager.SaveAll(models, cancellationToken);
         return Results.Ok(results);
-    }
-    
-    private static Dictionary<string, string>? ParseQueryString(string query)
-    {
-        if (string.IsNullOrWhiteSpace(query))
-        {
-            return null;
-        }
-
-        return query.Split('&')
-            .Select(part => part.Split('='))
-            .Where(parts => parts.Length == 2)
-            .ToDictionary(parts => parts[0], parts => parts[1]);
     }
 }

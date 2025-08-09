@@ -1,10 +1,8 @@
-using System.Collections.Specialized;
 using dymaptic.Blazor.StateManagement.Interfaces;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.Extensions.Logging;
 using System.Security.Claims;
-using System.Web;
 
 
 namespace dymaptic.Blazor.StateManagement;
@@ -172,7 +170,7 @@ public abstract class CollectionStateComponentBase<T> : ComponentBase where T : 
     }
     
 
-    protected virtual async Task Load(CancellationToken cancellationToken = default)
+    protected virtual async Task Load(List<SearchRecord>? queryParams = null, CancellationToken cancellationToken = default)
     {
         if (!Authenticated)
         {
@@ -188,7 +186,7 @@ public abstract class CollectionStateComponentBase<T> : ComponentBase where T : 
         
         try
         {
-            Dictionary<string, string>? queryParams = ParseQueryString(QueryString);
+            queryParams ??= QueryString?.ParseQueryString();
             Model = await StateManager.LoadAll(queryParams, cancellationToken);
         }
         catch (Exception ex)
@@ -321,28 +319,8 @@ public abstract class CollectionStateComponentBase<T> : ComponentBase where T : 
         }
     }
 
-    private Dictionary<string, string>? ParseQueryString(string? queryString)
-    {
-        if (string.IsNullOrWhiteSpace(queryString))
-        {
-            return QueryParams;
-        }
-        NameValueCollection query = HttpUtility.ParseQueryString(queryString);
-        Dictionary<string, string> queryParams = new();
-        foreach (string? key in query.AllKeys)
-        {
-            if (key is not null && !string.IsNullOrWhiteSpace(key))
-            {
-                queryParams[key] = query[key]!;
-            }
-        }
-        
-        return queryParams;
-    }
-
     protected bool Authenticated;
     protected string? UserId;
     protected string? QueryString;
-    protected Dictionary<string, string>? QueryParams;
     protected string? ErrorMessage;
 }

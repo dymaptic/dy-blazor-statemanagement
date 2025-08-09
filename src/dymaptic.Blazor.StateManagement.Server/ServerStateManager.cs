@@ -2,7 +2,10 @@ using dymaptic.Blazor.StateManagement.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Hybrid;
 using System.Reflection;
-using System.Text;
+using System.Text.RegularExpressions;
+
+
+// ReSharper disable ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
 
 
 namespace dymaptic.Blazor.StateManagement.Server;
@@ -70,42 +73,14 @@ public class ServerStateManager<T>(StateManagementDbContext dbContext,
         return model;
     }
     
-    public async ValueTask<T?> Search(Dictionary<string, string> queryParams, CancellationToken cancellationToken = default)
+    public async ValueTask<T?> Search(List<SearchRecord> queryParams, CancellationToken cancellationToken = default)
     {
         IQueryable<T> query = dbContext.Set<T>();
         Type modelType = typeof(T);
         PropertyInfo[] properties = modelType.GetProperties();
-        foreach (KeyValuePair<string, string> param in queryParams)
+        foreach (SearchRecord param in queryParams)
         {
-            if (string.IsNullOrWhiteSpace(param.Value))
-            {
-                continue;
-            }
-            
-            PropertyInfo? property = properties
-                .FirstOrDefault(p => p.Name.Equals(param.Key, StringComparison.OrdinalIgnoreCase));
-
-            if (property is null)
-            {
-                continue;
-            }
-
-            object value = param.Value;
-            if (property.PropertyType != typeof(string))
-            {
-                try
-                {
-                    value = Convert.ChangeType(param.Value, property.PropertyType);
-                }
-                catch (Exception ex)
-                {
-                    logger.LogError(ex, "Failed to convert value '{Value}' for property '{PropertyName}'", 
-                        param.Value, param.Key);
-
-                    continue;
-                }
-            }
-            query = query.Where(e => EF.Property<string>(e, param.Key) == value);
+            query = AppendQueryFilter(query, properties, param);
         }
         
         T? result = await query.FirstOrDefaultAsync(cancellationToken);
@@ -162,7 +137,7 @@ public class ServerStateManager<T>(StateManagementDbContext dbContext,
         await hybridCache.RemoveAsync(id.ToString(), cancellationToken);
     }
 
-    public async ValueTask<List<T>> LoadAll(Dictionary<string, string>? queryParams, CancellationToken cancellationToken)
+    public async ValueTask<List<T>> LoadAll(List<SearchRecord>? queryParams, CancellationToken cancellationToken = default)
     {
         IQueryable<T> query = dbContext.Set<T>();
 
@@ -170,37 +145,9 @@ public class ServerStateManager<T>(StateManagementDbContext dbContext,
         {
             Type modelType = typeof(T);
             PropertyInfo[] properties = modelType.GetProperties();
-            foreach (KeyValuePair<string, string> param in queryParams)
+            foreach (SearchRecord param in queryParams)
             {
-                if (string.IsNullOrWhiteSpace(param.Value))
-                {
-                    continue;
-                }
-                
-                PropertyInfo? property = properties
-                    .FirstOrDefault(p => p.Name.Equals(param.Key, StringComparison.OrdinalIgnoreCase));
-
-                if (property is null)
-                {
-                    continue;
-                }
-
-                object value = param.Value;
-                if (property.PropertyType != typeof(string))
-                {
-                    try
-                    {
-                        value = Convert.ChangeType(param.Value, property.PropertyType);
-                    }
-                    catch (Exception ex)
-                    {
-                        logger.LogError(ex, "Failed to convert value '{Value}' for property '{PropertyName}'", 
-                            param.Value, param.Key);
-
-                        continue;
-                    }
-                }
-                query = query.Where(e => EF.Property<string>(e, param.Key) == value);
+                query = AppendQueryFilter(query, properties, param);
             }
         }
 
@@ -305,6 +252,166 @@ public class ServerStateManager<T>(StateManagementDbContext dbContext,
         _undoStack.Clear();
         _redoStack.Clear();
     }
+    
+    private IQueryable<T> AppendQueryFilter(IQueryable<T> query, PropertyInfo[] properties, SearchRecord param)
+    {
+        if (string.IsNullOrWhiteSpace(param.SearchValue))
+        {
+            return query;
+        }
+            
+        PropertyInfo? property = properties
+            .FirstOrDefault(p => p.Name.Equals(param.PropertyName, StringComparison.OrdinalIgnoreCase));
+
+        if (property is null)
+        {
+            return query;
+        }
+
+        object value = GetSearchValue(param.SearchValue, property);
+
+        switch (param.SearchOption)
+        {
+            case SearchOption.Equals:
+                return query.Where(e => EF.Property<object>(e, param.PropertyName) == value);
+            case SearchOption.Contains:
+                return query.Where(e => EF.Functions.Like(
+                    EF.Property<string>(e, param.PropertyName),
+                    $"%{param.SearchValue}%"));
+            case SearchOption.StartsWith:
+                return query.Where(e => EF.Functions.Like(
+                    EF.Property<string>(e, param.PropertyName),
+                    $"{param.SearchValue}%"));
+            case SearchOption.EndsWith:
+                return query.Where(e => EF.Functions.Like(
+                    EF.Property<string>(e, param.PropertyName),
+                    $"%{param.SearchValue}"));
+            case SearchOption.NotEquals:
+                return query.Where(e => EF.Property<object>(e, param.PropertyName) != value);
+            // TODO: FIX THESE COMPARISONS
+            // case SearchOption.GreaterThan:
+            //     if (value is not IComparable gtComparable)
+            //     {
+            //         logger.LogWarning("Value for GreaterThan search option must implement IComparable");
+            //         return query;
+            //     }
+            //     return query.Where(e => EF.Property<IComparable>(e, param.PropertyName).CompareTo(gtComparable) > 0);
+            // case SearchOption.LessThan:
+            //     if (value is not IComparable ltComparable)
+            //     {
+            //         logger.LogWarning("Value for LessThan search option must implement IComparable");
+            //         return query;
+            //     }
+            //     return query.Where(e => EF.Property<IComparable>(e, param.PropertyName).CompareTo(ltComparable) < 0);
+            // case SearchOption.GreaterThanOrEqual:
+            //     if (value is not IComparable gteComparable)
+            //     {
+            //         logger.LogWarning("Value for GreaterThanOrEqual search option must implement IComparable");
+            //         return query;
+            //     }
+            //     return query.Where(e => EF.Property<IComparable>(e, param.PropertyName).CompareTo(gteComparable) >= 0);
+            // case SearchOption.LessThanOrEqual:
+            //     if (value is not IComparable lteComparable)
+            //     {
+            //         logger.LogWarning("Value for LessThanOrEqual search option must implement IComparable");
+            //         return query;
+            //     }
+            //     return query.Where(e => EF.Property<IComparable>(e, param.PropertyName).CompareTo(lteComparable) <= 0);
+            case SearchOption.IsNull:
+                return query.Where(e => EF.Property<object>(e, param.PropertyName) == null);
+            case SearchOption.IsNotNull:
+                return query.Where(e => EF.Property<object>(e, param.PropertyName) != null);
+            case SearchOption.In:
+                var inValues = param.SearchValue.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(v => v.Trim())
+                    .ToList();
+
+                if (inValues.Count == 0)
+                {
+                    return query;
+                }
+                
+                return query.Where(e => inValues.Contains(EF.Property<string>(e, param.PropertyName)));
+            case SearchOption.NotIn:
+                if (string.IsNullOrWhiteSpace(param.SearchValue))
+                {
+                    return query;
+                }
+                
+                var notInValues = param.SearchValue.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(v => v.Trim())
+                    .ToList();
+                
+                if (notInValues.Count == 0)
+                    return query;
+                
+                return query.Where(e => !notInValues.Contains(EF.Property<string>(e, param.PropertyName)));
+            case SearchOption.Between:
+                if (string.IsNullOrWhiteSpace(param.SecondarySearchValue))
+                {
+                    logger.LogWarning("Between search option requires SecondarySearchValue");
+                    return query;
+                }
+                
+                object secondaryValue = GetSearchValue(param.SecondarySearchValue, property);
+                
+                return query.Where(e => 
+                    EF.Property<IComparable>(e, param.PropertyName).CompareTo(value) >= 0 &&
+                    EF.Property<IComparable>(e, param.PropertyName).CompareTo(secondaryValue) <= 0);
+            case SearchOption.NotBetween:
+                if (string.IsNullOrWhiteSpace(param.SecondarySearchValue))
+                {
+                    logger.LogWarning("Between search option requires SecondarySearchValue");
+                    return query;
+                }
+                
+                object secondaryValue2 = GetSearchValue(param.SecondarySearchValue, property);
+                
+                return query.Where(e => 
+                    EF.Property<IComparable>(e, param.PropertyName).CompareTo(value) < 0 ||
+                    EF.Property<IComparable>(e, param.PropertyName).CompareTo(secondaryValue2) > 0);
+            case SearchOption.Regex:
+                return query.Where(e => Regex.IsMatch(EF.Property<string>(e, param.PropertyName),
+                    param.SearchValue, RegexOptions.IgnoreCase));
+            default:
+                logger.LogWarning("Unsupported search option: {SearchOption}", param.SearchOption);
+                return query;
+        }
+    }
+    
+    private object GetSearchValue(string searchValue, PropertyInfo property)
+    {
+        if (property.PropertyType == typeof(string))
+        {
+            return searchValue;
+        }
+        
+        // check if the property is an enum
+        if (property.PropertyType.IsEnum)
+        {
+            try
+            {
+                return Enum.Parse(property.PropertyType, searchValue, true);
+            }
+            catch (ArgumentException ex)
+            {
+                logger.LogError(ex, "Failed to parse enum value '{Value}' for property '{PropertyName}'", 
+                    searchValue, property.Name);
+                throw;
+            }
+        }
+
+        try
+        {
+            return Convert.ChangeType(searchValue, property.PropertyType);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to convert value '{Value}' for property '{PropertyName}'", 
+                searchValue, property.Name);
+            throw;
+        }
+    }
 
     public Type ModelType => typeof(T);
     private readonly Stack<T> _undoStack = [];
@@ -317,3 +424,4 @@ public class ServerStateManager<T>(StateManagementDbContext dbContext,
         Expiration = TimeSpan.FromMinutes(configuration.GetValue("StateManagement:CacheDuration", 5))
     };
 }
+

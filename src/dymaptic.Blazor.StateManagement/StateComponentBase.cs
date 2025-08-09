@@ -1,10 +1,8 @@
-using System.Collections.Specialized;
 using dymaptic.Blazor.StateManagement.Interfaces;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.Extensions.Logging;
 using System.Security.Claims;
-using System.Web;
 
 
 namespace dymaptic.Blazor.StateManagement;
@@ -108,11 +106,11 @@ public abstract class StateComponentBase<T> : ComponentBase where T : StateRecor
         // get ID from the URL if it exists
         if (id is null)
         {
-            Dictionary<string, string>? queryParams = ParseQueryString(QueryString);
+            List<SearchRecord>? queryParams = QueryString?.ParseQueryString();
                     
-            if (queryParams?.TryGetValue("id", out var idParam) == true)
+            if (queryParams?.FirstOrDefault(p => p.PropertyName.ToLowerInvariant() == "id") is { } idParam)
             {
-                id = Guid.TryParse(idParam, out Guid parsedId) ? parsedId : null;
+                id = Guid.TryParse(idParam.SearchValue, out Guid parsedId) ? parsedId : null;
             }
             else
             {
@@ -147,7 +145,7 @@ public abstract class StateComponentBase<T> : ComponentBase where T : StateRecor
         }
     }
     
-    protected virtual async Task Search(Dictionary<string, string> queryParams, 
+    protected virtual async Task Search(List<SearchRecord> queryParams, 
         CancellationToken cancellationToken = default)
     {
         if (!Authenticated)
@@ -324,26 +322,6 @@ public abstract class StateComponentBase<T> : ComponentBase where T : StateRecor
                 ErrorMessage = $"Failed to track model with ID {Model.Id}: {ex.Message}";
             }
         }
-    }
-    
-    private Dictionary<string, string>? ParseQueryString(string? queryString)
-    {
-        if (string.IsNullOrWhiteSpace(queryString))
-        {
-            return null;
-        }
-        
-        NameValueCollection query = HttpUtility.ParseQueryString(queryString);
-        Dictionary<string, string> queryParams = new();
-        foreach (string? key in query.AllKeys)
-        {
-            if (key is not null && !string.IsNullOrWhiteSpace(key))
-            {
-                queryParams[key] = query[key]!;
-            }
-        }
-        
-        return queryParams;
     }
 
     protected bool Authenticated;

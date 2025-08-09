@@ -198,6 +198,10 @@ body {
     cursor: pointer;
 }
 
+.rz-button {
+    padding: 0.5rem;
+}
+
 .nav-link {
     display: flex;
     align-items: center;
@@ -207,6 +211,11 @@ body {
     line-height: 2.5rem;
     padding-left: 0.5rem;
     transition: all 0.2s ease;
+}
+
+button.nav-link {
+    border: none;
+    background: none;
 }
 
 .nav-link:hover {

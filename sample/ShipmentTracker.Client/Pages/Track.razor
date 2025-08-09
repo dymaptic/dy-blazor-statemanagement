@@ -141,10 +141,8 @@ else
         if (Model is null)
         {
             Console.WriteLine("Searching for tracking number: " + TrackingNumber);
-            await Search(new Dictionary<string, string>
-            {
-                { "TrackingNumber", TrackingNumber }
-            });
+            await Search([new SearchRecord(nameof(Shipment.TrackingNumber), 
+                TrackingNumber, SearchOption.Equals)]);
             if (Model is not null)
             {
                 GenerateTrackingEvents();

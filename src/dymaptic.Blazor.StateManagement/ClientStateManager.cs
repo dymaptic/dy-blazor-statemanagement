@@ -73,9 +73,9 @@ public class ClientStateManager<T>(HttpClient httpClient, IndexedDb indexedDb, T
         return model;
     }
 
-    public async ValueTask<T?> Search(Dictionary<string, string> queryParams, CancellationToken cancellationToken = default)
+    public async ValueTask<T?> Search(List<SearchRecord> queryParams, CancellationToken cancellationToken = default)
     {
-        string queryString = BuildQueryString(queryParams);
+        string queryString = queryParams.BuildQueryString();
         string url = $"{_apiBaseUrl}/search?{queryString}";
         
         T? result = await httpClient.GetFromJsonAsync<T>(url, cancellationToken);
@@ -148,13 +148,13 @@ public class ClientStateManager<T>(HttpClient httpClient, IndexedDb indexedDb, T
         await indexedDb.Delete<T>(id, cancellationToken);
     }
 
-    public async ValueTask<List<T>> LoadAll(Dictionary<string, string>? queryParams,
+    public async ValueTask<List<T>> LoadAll(List<SearchRecord>? queryParams,
         CancellationToken cancellationToken = default)
     {
         string url = _apiBaseUrl;
         if (queryParams is not null && queryParams.Any())
         {
-            url += $"?{BuildQueryString(queryParams)}";
+            url += $"?{queryParams.BuildQueryString()}";
         }
 
         List<T>? results = await httpClient.GetFromJsonAsync<List<T>>(url, cancellationToken);
@@ -226,12 +226,6 @@ public class ClientStateManager<T>(HttpClient httpClient, IndexedDb indexedDb, T
         
         await SaveToIndexedDb(lastItem, cancellationToken);
         return lastItem;
-    }
-    
-    private string BuildQueryString(Dictionary<string, string> queryParams)
-    {
-        return string.Join("&", queryParams.Select(kvp => 
-            $"{Uri.EscapeDataString(kvp.Key)}={Uri.EscapeDataString(kvp.Value)}"));
     }
     
     private async Task SaveToIndexedDb(T record, CancellationToken cancellationToken)
