@@ -59,7 +59,7 @@ public class ClientStateManager<T>(HttpClient httpClient, IndexedDb indexedDb, T
     {
         if (model == _previousState)
         {
-            logger.LogInformation("No changes detected, skipping tracking.");
+            logger.LogDebug("No changes detected, skipping tracking.");
             return model;
         }
 
@@ -230,7 +230,7 @@ public class ClientStateManager<T>(HttpClient httpClient, IndexedDb indexedDb, T
     
     private async Task SaveToIndexedDb(T record, CancellationToken cancellationToken)
     {
-        logger.LogInformation("Saving record {record}", record);
+        logger.LogDebug("Saving record {record}", record);
         await indexedDb.Put(new CacheStorageRecord<T>(record, record.Id, _userId!, timeProvider.GetUtcNow().DateTime), 
             cancellationToken);
     }
@@ -244,7 +244,7 @@ public class ClientStateManager<T>(HttpClient httpClient, IndexedDb indexedDb, T
             if (cachedRecord is not null && cachedRecord.UserId == _userId
                                          && cachedRecord.TimeStamp + _cacheDuration < timeProvider.GetUtcNow().DateTime)
             {
-                logger.LogInformation("Loading from indexed DB");
+                logger.LogDebug("Loading from indexed DB");
                 return cachedRecord.Item;
             }
         }

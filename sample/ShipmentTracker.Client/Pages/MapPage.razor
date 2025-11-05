@@ -4,51 +4,54 @@
 
 <h1>Map</h1>
 
-<MapView Class="map-view" OnViewRendered="OnViewRendered"
-         Longitude="-100" Latitude="40"
-         Zoom="3"
-         OnLayerViewCreate="OnLayerViewCreate">
-    <Map>
-        <Basemap>
-            <BasemapStyle Name="BasemapStyleName.ArcgisStreetsReliefBase" />
-        </Basemap>
-        <GraphicsLayer @ref="_graphicsLayer" Title="Shipments">
-            
-        </GraphicsLayer>
-        <FeatureLayer Url="https://services9.arcgis.com/RHVPKKiFTONKtxq3/arcgis/rest/services/NDFD_Precipitation_v1/FeatureServer/0"
-                      Visible="@_showWeather"
-                      @ref="_weatherLayer" />
-        <MapImageLayer @ref="_trafficLayer" Visible="@_showTraffic">
-            <PortalItem PortalItemId="ff11eb5b930b4fabba15c47feb130de4" />
-        </MapImageLayer>
-    </Map>
-    <ExpandWidget Position="OverlayPosition.BottomLeft">
-        <GraphicsLegendWidget Label="Shipments"
-                              GraphicLabelTemplate="{Category}"
-                              GroupBySymbol="true"
-                              SelectGraphics="true"
-                              ToggleGraphics="true" />
-    </ExpandWidget>
-    <LayerListWidget Position="OverlayPosition.TopRight" />
-    <ExpandWidget Position="OverlayPosition.TopLeft">
-        <div class="map-controls">
-            <h4>Map Layers</h4>
-            <div class="form-check">
-                <RadzenCheckBox @bind-Value="_showWeather" Name="weatherToggle" />
-                <RadzenLabel Text="Show Weather" For="weatherToggle" Class="ms-2" />
+@if (_shipmentGraphics.Any())
+{
+    <MapView Class="map-view" OnViewRendered="OnViewRendered"
+             Longitude="-100" Latitude="40"
+             Zoom="3"
+             OnLayerViewCreate="OnLayerViewCreate">
+        <Map>
+            <Basemap>
+                <BasemapStyle Name="BasemapStyleName.ArcgisStreetsReliefBase" />
+            </Basemap>
+            <GraphicsLayer @ref="_graphicsLayer" Title="Shipments">
+                
+            </GraphicsLayer>
+            <FeatureLayer Url="https://services9.arcgis.com/RHVPKKiFTONKtxq3/arcgis/rest/services/NDFD_Precipitation_v1/FeatureServer/0"
+                          Visible="@_showWeather"
+                          @ref="_weatherLayer" />
+            <MapImageLayer @ref="_trafficLayer" Visible="@_showTraffic">
+                <PortalItem PortalItemId="ff11eb5b930b4fabba15c47feb130de4" />
+            </MapImageLayer>
+        </Map>
+        <ExpandWidget Position="OverlayPosition.BottomLeft">
+            <GraphicsLegendWidget Label="Shipments"
+                                  GraphicLabelTemplate="{Category}"
+                                  GroupBySymbol="true"
+                                  SelectGraphics="true"
+                                  ToggleGraphics="true" />
+        </ExpandWidget>
+        <LayerListWidget Position="OverlayPosition.TopRight" />
+        <ExpandWidget Position="OverlayPosition.TopLeft">
+            <div class="map-controls">
+                <h4>Map Layers</h4>
+                <div class="form-check">
+                    <RadzenCheckBox @bind-Value="_showWeather" Name="weatherToggle" />
+                    <RadzenLabel Text="Show Weather" For="weatherToggle" Class="ms-2" />
+                </div>
+                <div class="form-check mt-2">
+                    <RadzenCheckBox @bind-Value="_showTraffic" Name="trafficToggle" />
+                    <RadzenLabel Text="Show Traffic" For="trafficToggle" Class="ms-2" />
+                </div>
             </div>
-            <div class="form-check mt-2">
-                <RadzenCheckBox @bind-Value="_showTraffic" Name="trafficToggle" />
-                <RadzenLabel Text="Show Traffic" For="trafficToggle" Class="ms-2" />
-            </div>
-        </div>
-    </ExpandWidget>
-    <TimeSliderWidget @ref="_timeSliderWidget" Loop="true" Mode="TimeSliderMode.TimeWindow"
-                      ContainerId="time-slider-container">
-        <TickConfig Mode="TickConfigMode.Percent" Values="@([ 12.5, 37.5, 62.5, 87.5 ])"></TickConfig>
-    </TimeSliderWidget>
-    <SearchWidget Position="OverlayPosition.BottomRight" />
-</MapView>
+        </ExpandWidget>
+        <TimeSliderWidget @ref="_timeSliderWidget" Loop="true" Mode="TimeSliderMode.TimeWindow"
+                          ContainerId="time-slider-container">
+            <TickConfig Mode="TickConfigMode.Percent" Values="@([ 12.5, 37.5, 62.5, 87.5 ])"></TickConfig>
+        </TimeSliderWidget>
+        <SearchWidget Position="OverlayPosition.BottomRight" />
+    </MapView>
+}
 <div id="time-slider-container"></div>
 <div class="alert-warning">@ErrorMessage</div>
 
@@ -95,12 +98,7 @@
                 Graphic graphic = new(location, symbol, popupTemplate, attributes);
                 _shipmentGraphics.Add(graphic);
             }
-
-            if (!_graphicsAdded)
-            {
-                _graphicsAdded = true;
-                await _graphicsLayer!.Add(_shipmentGraphics);
-            }
+            
             StateHasChanged();
         }
     }

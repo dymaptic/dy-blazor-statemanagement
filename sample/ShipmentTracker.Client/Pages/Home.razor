@@ -127,7 +127,7 @@
                     <GraphicsLayer @ref="_graphicsLayer">
                         <Graphic @ref="_shipmentGraphic" Attributes="BuildAttributes(shipment)">
                             <Point Latitude="@shipment.Latitude" Longitude="@shipment.Longitude"/>
-                            <SimpleMarkerSymbol Color="CategoryColors.AllColors[shipment.Category]"/>
+                            <SimpleMarkerSymbol Color="CategoryColors.AllColors[shipment.Category!]"/>
                             <PopupTemplate Title="@shipment.Name">
                                 <FieldsPopupContent>
                                     <FieldInfo FieldName="@nameof(Shipment.Category)"/>

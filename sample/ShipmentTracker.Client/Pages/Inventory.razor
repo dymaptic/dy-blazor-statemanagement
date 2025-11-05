@@ -49,8 +49,9 @@
     {
         await base.OnAfterRenderAsync(firstRender);
 
-        if (firstRender)
+        if (Model is not null && !_dataSet)
         {
+            _dataSet = true;
             _totalPackages = Model!.Count;
             _inTransit = Random.Shared.Next(50, 80);
             _delivered = Random.Shared.Next(10, 30);
@@ -79,4 +80,6 @@
         public double TotalWeight { get; init; }
         public double AverageWeight { get; init; }
     }
+
+    private bool _dataSet;
 }

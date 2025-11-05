@@ -12,7 +12,6 @@ using App = ShipmentTracker.Components.App;
 
 
 Log.Logger = new LoggerConfiguration()
-    .MinimumLevel.Debug()
     .WriteTo.Console()
     .CreateLogger();
 

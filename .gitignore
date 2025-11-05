@@ -12,3 +12,4 @@ riderModule.iml
 *.suo
 .claude
 CLAUDE.md
+/sample/ShipmentTracker.Client/wwwroot/appsettings.json

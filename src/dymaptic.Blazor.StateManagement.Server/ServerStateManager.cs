@@ -58,14 +58,14 @@ public class ServerStateManager<T>(StateManagementDbContext dbContext,
     {
         if (model == _previousState)
         {
-            logger.LogInformation("No changes detected, skipping tracking.");
+            logger.LogDebug("No changes detected, skipping tracking.");
             return model;
         }
 
         _previousState = model with { };
 
         DateTime time = timeProvider.GetUtcNow().DateTime;
-        logger.LogInformation("Tracking changes at {Time} for model {Id}", time, model.Id);
+        logger.LogDebug("Tracking changes at {Time} for model {Id}", time, model.Id);
 
         T snapShot = model with { LastUpdatedUtc = time };
         _undoStack.Push(snapShot);
@@ -205,7 +205,7 @@ public class ServerStateManager<T>(StateManagementDbContext dbContext,
     
     private async Task SaveToCache(T record, CancellationToken cancellationToken)
     {
-        logger.LogInformation("Saving to cache of type {Type}", record.GetType());
+        logger.LogDebug("Saving to cache of type {Type}", record.GetType());
         await hybridCache.SetAsync(record.Id.ToString(), 
             new CacheStorageRecord<T>(record, record.Id, _userId!, DateTime.UtcNow), 
             _cacheOptions, null, cancellationToken);
@@ -227,7 +227,7 @@ public class ServerStateManager<T>(StateManagementDbContext dbContext,
 
         if (cachedRecord.UserId == _userId)
         {
-            logger.LogInformation("Loaded from cache of type {Type}", cachedRecord.Item.GetType());
+            logger.LogDebug("Loaded from cache of type {Type}", cachedRecord.Item.GetType());
             return cachedRecord.Item;
         }
         

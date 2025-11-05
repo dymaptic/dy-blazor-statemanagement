@@ -313,7 +313,7 @@ public abstract class StateComponentBase<T> : ComponentBase where T : StateRecor
         {
             try
             {
-                Logger.LogInformation("Tracking model with ID {Id}", Model.Id);
+                Logger.LogDebug("Tracking model with ID {Id}", Model.Id);
                 await StateManager.Track(Model);
             }
             catch (Exception ex)
